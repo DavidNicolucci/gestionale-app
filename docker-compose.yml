@@ -1,0 +1,47 @@
+services:                                    # Elenco dei container che compongono l'app
+
+  sqlserver:                                 # Primo servizio: il database SQL Server
+    image: mcr.microsoft.com/mssql/server:2022-latest  # Immagine ufficiale Microsoft, versione 2022
+    container_name: gestionale-sqlserver     # Nome fisso del container
+    environment:                             # Variabili d'ambiente passate al container
+      ACCEPT_EULA: "Y"                       # licenza Microsoft
+      MSSQL_SA_PASSWORD: "Str0ng!Passw0rd"   # Password dell'utente
+      MSSQL_PID: "Developer"                 # Edizione gratuita per sviluppo (no licenza a pagamento)
+    ports:                                   # Mappatura porte host:container
+      - "1433:1433"                          # La 1433 del tuo PC punta alla 1433 del container (porta standard SQL Server)
+    volumes:                                 # Dischi persistenti
+      - sqlserver-data:/var/opt/mssql        # Salva i dati del DB nel volume, così non si perdono al riavvio
+    healthcheck:                             # Controllo per sapere se il DB è davvero pronto
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Str0ng!Passw0rd" -C -Q "SELECT 1" || exit 1
+      # Esegue una query banale: se risponde, il DB è vivo; -C accetta il cert self-signed
+      interval: 10s                          # Ripete il test ogni 10 secondi
+      timeout: 5s                            # Se la query non risponde entro 5s, fallisce
+      retries: 10                            # Dopo 10 fallimenti consecutivi il container è "unhealthy"
+
+  sqlserver-init:                            # Secondo servizio: container temporaneo che lancia lo script SQL
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: gestionale-sqlserver-init
+    depends_on:                              # Definisce l'ordine di avvio
+      sqlserver:
+        condition: service_healthy           # NON parte finché sqlserver non è "healthy" (vedi healthcheck sopra)
+    volumes:
+      - ./docker/sqlserver/init:/init        # Monta la cartella locale degli script dentro il container in /init
+    entrypoint: >                            # Comando da eseguire all'avvio (il > permette di scriverlo su più righe)
+      /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "Str0ng!Passw0rd" -C -i /init/01-schema.sql
+    restart: "no"                            # Una volta finito lo script, NON si riavvia (è usa-e-getta)
+
+  rabbitmq:                                  # Terzo servizio: il broker di messaggi per le code
+    image: rabbitmq:3.13-management          # Versione "management" = include l'interfaccia web di gestione
+    container_name: gestionale-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: "gestionale"    # Username per accedere a RabbitMQ
+      RABBITMQ_DEFAULT_PASS: "gestionale"    # Password corrispondente
+    ports:
+      - "5672:5672"                          # Porta AMQP: quella che useranno Quarkus/i producer-consumer per i messaggi
+      - "15672:15672"                        # Porta della UI web (la apri nel browser su localhost:15672)
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq      # Persiste code e configurazioni tra i riavvii
+
+volumes:                                     # Dichiarazione dei volumi nominati usati sopra
+  sqlserver-data:                            # Docker lo crea e gestisce automaticamente
+  rabbitmq-data:
