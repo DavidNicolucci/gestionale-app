@@ -39,3 +39,65 @@ INSERT INTO app_user_role (user_id, role_name)
 VALUES (SCOPE_IDENTITY(), 'ADMIN');      -- SCOPE_IDENTITY() = l'id appena generato dall'INSERT sopra; gli dà ruolo ADMIN
 END
 GO
+
+-- ============================================================
+-- TABELLE DI DOMINIO
+-- ============================================================
+
+-- ---- Dipendenti ----
+IF OBJECT_ID('dipendente', 'U') IS NULL
+CREATE TABLE dipendente (
+                            id              BIGINT IDENTITY(1,1) PRIMARY KEY,
+                            nome            NVARCHAR(100) NOT NULL,
+                            cognome         NVARCHAR(100) NOT NULL,
+                            codice_fiscale  NVARCHAR(16)  NOT NULL UNIQUE,   -- CF italiano: sempre 16 caratteri, univoco
+                            data_nascita    DATE          NOT NULL,
+                            nazionalita     NVARCHAR(60)  NOT NULL,
+                            tipo_contratto  NVARCHAR(50)  NOT NULL,          -- es. 'INDETERMINATO', 'DETERMINATO'
+                            data_assunzione DATE          NOT NULL,
+                            data_scadenza   DATE          NULL               -- NULL se contratto a tempo indeterminato
+);
+GO
+
+-- ---- Clienti ----
+F OBJECT_ID('cliente', 'U') IS NULL
+CREATE TABLE cliente (
+                         id              BIGINT IDENTITY(1,1) PRIMARY KEY,
+                         ragione_sociale NVARCHAR(200) NOT NULL,
+                         partita_iva     NVARCHAR(20)  NULL,
+                         indirizzo       NVARCHAR(250) NULL              -- sede del cliente
+);
+GO
+
+-- ---- Siti (luoghi di lavoro associati a un cliente) ----
+IF OBJECT_ID('sito', 'U') IS NULL
+CREATE TABLE sito (
+                      id          BIGINT IDENTITY(1,1) PRIMARY KEY,
+                      nome        NVARCHAR(150) NOT NULL,              -- es. 'Cantiere Via Roma', 'Boutique Centro'
+                      indirizzo   NVARCHAR(250) NULL,
+                      cliente_id  BIGINT NOT NULL,                     -- FK verso cliente
+                      CONSTRAINT fk_sito_cliente FOREIGN KEY (cliente_id)
+                          REFERENCES cliente(id) ON DELETE CASCADE     -- elimino il cliente -> spariscono i suoi siti
+);
+GO
+
+-- ---- Timesheet (ore lavorate) ----
+IF OBJECT_ID('timesheet', 'U') IS NULL
+CREATE TABLE timesheet (
+                           id            BIGINT IDENTITY(1,1) PRIMARY KEY,
+                           dipendente_id BIGINT NOT NULL,                   -- FK: chi ha lavorato
+                           sito_id       BIGINT NOT NULL,                   -- FK: dove
+                           data_lavoro   DATE          NOT NULL,            -- giorno della prestazione
+                           ore_lavorate  DECIMAL(5,2)  NOT NULL,            -- es. 7.50 ore; DECIMAL evita errori di arrotondamento
+                           note          NVARCHAR(500) NULL,
+                           CONSTRAINT fk_ts_dipendente FOREIGN KEY (dipendente_id)
+                               REFERENCES dipendente(id),
+                           CONSTRAINT fk_ts_sito FOREIGN KEY (sito_id)
+                               REFERENCES sito(id)
+);
+GO
+
+-- Indici sulle FK più interrogate (le query "ore di X" filtrano per dipendente e data)
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_timesheet_dipendente')
+CREATE INDEX ix_timesheet_dipendente ON timesheet(dipendente_id, data_lavoro);
+GO
