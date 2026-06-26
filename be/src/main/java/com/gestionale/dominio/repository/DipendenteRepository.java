@@ -15,4 +15,8 @@ public class DipendenteRepository implements PanacheRepository<Dipendente> {
         return list("cognome", cognome);
         // "list" è Panache: traduce in "WHERE cognome = ?1". Niente JPQL a mano per i casi semplici.
     }
+
+    public Dipendente perCodiceFiscale(String cf) {
+        return find("codiceFiscale", cf).firstResult();
+    }
 }

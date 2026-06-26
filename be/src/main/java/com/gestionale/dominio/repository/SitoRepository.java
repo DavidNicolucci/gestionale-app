@@ -12,4 +12,8 @@ public class SitoRepository implements PanacheRepository<Sito> {
     public List<Sito> perCliente(Long clienteId) {
         return list("cliente.id", clienteId);
     }
+
+    public Sito perNome(String nome) {
+        return find("nome", nome).firstResult();
+    }
 }
