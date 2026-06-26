@@ -20,11 +20,12 @@ GO
 -- Tabella che collega ogni utente ai suoi ruoli (un utente può averne più di uno)
 IF OBJECT_ID('app_user_role', 'U') IS NULL
 CREATE TABLE app_user_role (
-                               user_id   BIGINT NOT NULL,                       -- A quale utente appartiene il ruolo
-                               role_name NVARCHAR(50) NOT NULL,                 -- Nome del ruolo (es. 'ADMIN', 'OPERATOR')
-                               CONSTRAINT pk_user_role PRIMARY KEY (user_id, role_name),  -- Chiave composta: stessa coppia utente+ruolo non si ripete
-                               CONSTRAINT fk_user_role_user FOREIGN KEY (user_id)         -- Vincolo: user_id deve esistere in app_user
-                                   REFERENCES app_user(id) ON DELETE CASCADE              -- Se cancelli l'utente, spariscono anche i suoi ruoli
+                               id        BIGINT IDENTITY(1,1) PRIMARY KEY,      -- PK surrogata semplice
+                               user_id   BIGINT NOT NULL,
+                               role_name NVARCHAR(50) NOT NULL,
+                               CONSTRAINT uq_user_role UNIQUE (user_id, role_name),  -- la vecchia PK diventa vincolo di unicità
+                               CONSTRAINT fk_user_role_user FOREIGN KEY (user_id)
+                                   REFERENCES app_user(id) ON DELETE CASCADE
 );
 GO
 
@@ -32,8 +33,8 @@ GO
 IF NOT EXISTS (SELECT 1 FROM app_user WHERE username = 'admin')  -- Controlla se 'admin' esiste già
 BEGIN                                                            -- Inizio blocco di istruzioni multiple
 INSERT INTO app_user (username, password, enabled)
-VALUES ('admin', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5h0p9pYqXh6QrJ5QF5p5pXqQ9YQ9a', 1);
--- Inserisce admin con l'hash Bcrypt (placeholder, da rigenerare allo Step 6)
+VALUES ('admin', '$2a$10$qntpYmaH4ZPeChKtscpl8OyRSHYszkv180TiJ1Nn3J1FEUHNmOdOq', 1);
+-- Inserisce admin con l'hash Bcrypt reale della password 'admin123'
 
 INSERT INTO app_user_role (user_id, role_name)
 VALUES (SCOPE_IDENTITY(), 'ADMIN');      -- SCOPE_IDENTITY() = l'id appena generato dall'INSERT sopra; gli dà ruolo ADMIN
@@ -60,7 +61,7 @@ CREATE TABLE dipendente (
 GO
 
 -- ---- Clienti ----
-F OBJECT_ID('cliente', 'U') IS NULL
+IF OBJECT_ID('cliente', 'U') IS NULL
 CREATE TABLE cliente (
                          id              BIGINT IDENTITY(1,1) PRIMARY KEY,
                          ragione_sociale NVARCHAR(200) NOT NULL,
