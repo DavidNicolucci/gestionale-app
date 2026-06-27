@@ -9,6 +9,10 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import java.util.List;
+import io.quarkus.cache.CacheInvalidate;
+import io.quarkus.cache.CacheInvalidateAll;
+import io.quarkus.cache.CacheResult;
+import io.quarkus.cache.CacheKey;
 
 @ApplicationScoped
 public class DipendenteService {
@@ -16,10 +20,12 @@ public class DipendenteService {
     @Inject
     DipendenteRepository repository;     // inject del repository (CDI)
 
+    @CacheResult(cacheName = "dipendente-singolo")
     public List<Dipendente> listaTutti() {
         return repository.listAll();     // metodo fornito da Panache
     }
 
+    @CacheResult(cacheName = "dipendenti-lista")
     public Dipendente trovaPerId(Long id) {
         Dipendente d = repository.findById(id);
         if (d == null) {
@@ -28,7 +34,8 @@ public class DipendenteService {
         return d;
     }
 
-    @Transactional                       // apre una transazione: o tutto va a buon fine, o rollback
+    @Transactional// apre una transazione: o tutto va a buon fine, o rollback
+    @CacheInvalidateAll(cacheName = "dipendenti-lista")   // la lista non è più valida
     public Dipendente crea(DipendenteRequest req) {
         // Regola di business: CF univoco. Controllo applicativo + vincolo DB come rete di sicurezza.
         if (repository.count("codiceFiscale", req.codiceFiscale) > 0) {
@@ -51,6 +58,8 @@ public class DipendenteService {
     }
 
     @Transactional
+    @CacheInvalidateAll(cacheName = "dipendenti-lista")       // la lista cambia
+    @CacheInvalidate(cacheName = "dipendente-singolo")        // anche il singolo aggiornato
     public Dipendente aggiorna(Long id, DipendenteRequest req) {
         Dipendente d = trovaPerId(id);   // riusa la logica di lookup (404 se non c'è)
         d.nome = req.nome;
@@ -66,6 +75,8 @@ public class DipendenteService {
     }
 
     @Transactional
+    @CacheInvalidateAll(cacheName = "dipendenti-lista")
+    @CacheInvalidate(cacheName = "dipendente-singolo")
     public void elimina(Long id) {
         boolean rimosso = repository.deleteById(id);
         if (!rimosso) {

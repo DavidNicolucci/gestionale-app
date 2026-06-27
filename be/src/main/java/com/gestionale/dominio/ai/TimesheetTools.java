@@ -40,10 +40,20 @@ public class TimesheetTools {
                 nomeCompleto, totale, dataInizio, dataFine);
     }
 
-    // Helper: cerca un dipendente confrontando "Nome Cognome"
+    // Helper: cerca un dipendente per nome completo, solo nome o solo cognome.
+    // Il confronto è case-insensitive e ignora spazi superflui, così "Mario",
+    // "Rossi" o "Mario Rossi" trovano comunque il dipendente.
     private Dipendente trovaDipendentePerNome(String nomeCompleto) {
+        String cercato = nomeCompleto.trim().toLowerCase();
         return dipendenteRepo.listAll().stream()
-                .filter(d -> (d.nome + " " + d.cognome).equalsIgnoreCase(nomeCompleto.trim()))
+                .filter(d -> {
+                    String nome = d.nome.toLowerCase();
+                    String cognome = d.cognome.toLowerCase();
+                    String completo = (nome + " " + cognome);
+                    return completo.equals(cercato)
+                            || nome.equals(cercato)
+                            || cognome.equals(cercato);
+                })
                 .findFirst()
                 .orElse(null);
     }
