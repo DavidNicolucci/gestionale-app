@@ -1,2 +1,5 @@
 # Claude Code
 .claude/
+
+# Variabili d'ambiente con segreti (usate da docker-compose)
+.env
