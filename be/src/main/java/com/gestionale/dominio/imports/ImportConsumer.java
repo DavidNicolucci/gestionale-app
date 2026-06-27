@@ -13,6 +13,8 @@ import jakarta.transaction.Transactional;
 import org.apache.poi.ss.usermodel.*;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DateUtil;
 
 import java.io.FileInputStream;
 import java.math.BigDecimal;
@@ -53,8 +55,8 @@ public class ImportConsumer {
                     try {
                         String cf       = getString(row.getCell(0));
                         String nomeSito = getString(row.getCell(1));
-                        LocalDate data  = row.getCell(2).getLocalDateTimeCellValue().toLocalDate();
-                        BigDecimal ore  = BigDecimal.valueOf(row.getCell(3).getNumericCellValue());
+                        LocalDate data  = getData(row.getCell(2));
+                        BigDecimal ore  = getNumero(row.getCell(3));
 
                         // Lookup: il dipendente e il sito devono esistere
                         Dipendente dip = dipendenteRepo.perCodiceFiscale(cf);
@@ -97,5 +99,27 @@ public class ImportConsumer {
     private String getString(Cell cell) {
         if (cell == null) return null;
         return cell.getStringCellValue().trim();
+    }
+
+    // Legge una cella come numero, accettando sia celle numeriche sia testo "7.5"
+    private BigDecimal getNumero(Cell cell) {
+        if (cell == null) return null;
+        if (cell.getCellType() == CellType.NUMERIC) {
+            return BigDecimal.valueOf(cell.getNumericCellValue());
+        }
+        // se è testo, lo converto (gestisco anche la virgola decimale all'italiana)
+        String raw = cell.getStringCellValue().trim().replace(",", ".");
+        return new BigDecimal(raw);
+    }
+
+    // Legge una cella come data, accettando sia date Excel sia testo "2025-08-01"
+    private LocalDate getData(Cell cell) {
+        if (cell == null) return null;
+        if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+            return cell.getLocalDateTimeCellValue().toLocalDate();
+        }
+        // se è testo, parso il formato ISO (yyyy-MM-dd)
+        String raw = cell.getStringCellValue().trim();
+        return LocalDate.parse(raw);
     }
 }
