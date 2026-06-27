@@ -43,6 +43,8 @@ nb-configuration.xml
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+# Keystore self-signed per HTTPS in sviluppo (rigenerabile con keytool)
+src/main/resources/*.p12
 
 # Claude Code
 .claude/
