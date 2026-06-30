@@ -48,3 +48,6 @@ src/main/resources/*.p12
 
 # Claude Code
 .claude/
+
+src/main/resources/privateKey.pem
+src/main/resources/publicKey.pem
