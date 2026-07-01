@@ -102,3 +102,40 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_timesheet_dipendente')
 CREATE INDEX ix_timesheet_dipendente ON timesheet(dipendente_id, data_lavoro);
 GO
+
+-- ============================================================
+-- DATI DI ESEMPIO (seed) per poter testare l'import Excel
+-- Ogni INSERT e' protetto da IF NOT EXISTS: rieseguibile senza duplicati.
+-- I timesheet importati cercano il dipendente per CODICE FISCALE (colonna A)
+-- e il sito per NOME (colonna B): questi valori devono combaciare con l'Excel.
+-- ============================================================
+
+-- ---- Cliente ----
+IF NOT EXISTS (SELECT 1 FROM cliente WHERE ragione_sociale = 'Acme S.p.A.')
+INSERT INTO cliente (ragione_sociale, partita_iva, indirizzo)
+VALUES ('Acme S.p.A.', '01234567890', 'Via Milano 1, Milano');
+GO
+
+-- ---- Siti (associati al cliente Acme) ----
+IF NOT EXISTS (SELECT 1 FROM sito WHERE nome = 'Cantiere Via Roma')
+INSERT INTO sito (nome, indirizzo, cliente_id)
+VALUES ('Cantiere Via Roma', 'Via Roma 10, Milano',
+        (SELECT id FROM cliente WHERE ragione_sociale = 'Acme S.p.A.'));
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sito WHERE nome = 'Boutique Centro')
+INSERT INTO sito (nome, indirizzo, cliente_id)
+VALUES ('Boutique Centro', 'Corso Buenos Aires 5, Milano',
+        (SELECT id FROM cliente WHERE ragione_sociale = 'Acme S.p.A.'));
+GO
+
+-- ---- Dipendenti ----
+IF NOT EXISTS (SELECT 1 FROM dipendente WHERE codice_fiscale = 'RSSMRA85M01H501Z')
+INSERT INTO dipendente (nome, cognome, codice_fiscale, data_nascita, nazionalita, tipo_contratto, data_assunzione, data_scadenza)
+VALUES ('Mario', 'Rossi', 'RSSMRA85M01H501Z', '1985-08-01', 'Italiana', 'INDETERMINATO', '2020-01-15', NULL);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dipendente WHERE codice_fiscale = 'BNCLGU90A01F205W')
+INSERT INTO dipendente (nome, cognome, codice_fiscale, data_nascita, nazionalita, tipo_contratto, data_assunzione, data_scadenza)
+VALUES ('Luigi', 'Bianchi', 'BNCLGU90A01F205W', '1990-01-01', 'Italiana', 'DETERMINATO', '2023-03-01', '2026-03-01');
+GO
