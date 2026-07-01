@@ -35,8 +35,11 @@ public class ImportConsumer {
     @Incoming("import-in")              // ASCOLTA il canale in entrata: scatta a ogni messaggio
     @Transactional
     public void elabora(String jsonMessage) {
+        String filePathToDelete = null;
+        boolean isDbOrTxError = false;
         try {
             ImportMessage msg = objectMapper.readValue(jsonMessage, ImportMessage.class);
+            filePathToDelete = msg.filePath;
             LOG.infof("Inizio import del file: %s", msg.fileName);
 
             int righeOk = 0;
@@ -78,6 +81,10 @@ public class ImportConsumer {
                         righeOk++;
 
                     } catch (Exception e) {
+                        if (isDatabaseOrTransactionException(e)) {
+                            isDbOrTxError = true;
+                            throw e; // Rilancia per attivare il fail-fast ed uscire subito
+                        }
                         LOG.warnf("Errore sulla riga %d: %s", i, e.getMessage());
                         righeErrore++;
                     }
@@ -87,12 +94,40 @@ public class ImportConsumer {
             LOG.infof("Import completato (%s): %d righe inserite, %d errori",
                     msg.fileName, righeOk, righeErrore);
 
-            // Pulizia: rimuove il file temporaneo dopo l'elaborazione
-            Files.deleteIfExists(Paths.get(msg.filePath));
+            // Pulizia: rimuove il file temporaneo dopo l'elaborazione con successo
+            if (filePathToDelete != null) {
+                Files.deleteIfExists(Paths.get(filePathToDelete));
+            }
 
         } catch (Exception e) {
-            LOG.errorf(e, "Errore fatale nell'elaborazione del messaggio di import");
+            LOG.errorf(e, "Errore fatale nell'elaborazione del messaggio di import. DB Error? %b", isDbOrTxError);
+
+            // Se l'errore NON è di DB/transazionale (es. file corrotto o non leggibile):
+            // Rimuoviamo il file temporaneo per evitare perdite di spazio su disco
+            if (!isDbOrTxError && filePathToDelete != null) {
+                try {
+                    Files.deleteIfExists(Paths.get(filePathToDelete));
+                } catch (java.io.IOException ioException) {
+                    LOG.error("Impossibile eliminare il file corrotto", ioException);
+                }
+            }
+
+            // Rilanciamo l'eccezione per notificare il fallimento al broker (Nack)
+            throw new RuntimeException("Errore fatale durante l'elaborazione dell'import", e);
         }
+    }
+
+    // Helper: identifica se una eccezione o la sua causa è riconducibile al Database o a Transazioni
+    private boolean isDatabaseOrTransactionException(Throwable e) {
+        if (e == null) return false;
+        String className = e.getClass().getName();
+        if (className.startsWith("jakarta.persistence") ||
+            className.startsWith("org.hibernate") ||
+            className.startsWith("java.sql") ||
+            className.startsWith("jakarta.transaction")) {
+            return true;
+        }
+        return isDatabaseOrTransactionException(e.getCause());
     }
 
     // Helper: legge una cella come stringa in modo sicuro
