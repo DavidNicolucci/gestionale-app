@@ -1,3 +1,3 @@
 export class LoginResponseModel {
-  token!: string;
+  username!: string;
 }

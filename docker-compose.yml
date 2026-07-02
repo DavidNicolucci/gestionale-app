@@ -17,6 +17,7 @@ services:                                    # Elenco dei container che compongo
       interval: 10s                          # Ripete il test ogni 10 secondi
       timeout: 5s                            # Se la query non risponde entro 5s, fallisce
       retries: 10                            # Dopo 10 fallimenti consecutivi il container è "unhealthy"
+      start_period: 90s                      # Periodo di grazia all'avvio: i fallimenti nei primi 90s non contano nei retry
 
   sqlserver-init:                            # Secondo servizio: container temporaneo che lancia lo script SQL
     image: mcr.microsoft.com/mssql/server:2022-latest

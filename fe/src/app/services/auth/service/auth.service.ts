@@ -1,44 +1,48 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import {firstValueFrom, Observable, tap} from 'rxjs';
-import {plainToInstance} from 'class-transformer';
-import {LoginRequestModel} from '../interfaces/login-request.model';
-import {LoginResponseModel} from '../interfaces/login-response.model';
-
-
-
-
+import { firstValueFrom } from 'rxjs';
+import { plainToInstance } from 'class-transformer';
+import { LoginRequestModel } from '../interfaces/login-request.model';
+import { LoginResponseModel } from '../interfaces/login-response.model';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
-  private static readonly TOKEN_KEY = 'gestionale_token';
 
-  private readonly token = signal<string | null>(
-    localStorage.getItem(AuthService.TOKEN_KEY),
-  );
+  // Il JWT vive in un cookie HttpOnly gestito dal browser e non è leggibile da qui:
+  // teniamo in memoria solo chi è l'utente loggato
+  private readonly currentUser = signal<string | null>(null);
 
-  readonly isAuthenticated = computed(() => this.token() !== null);
+  readonly isAuthenticated = computed(() => this.currentUser() !== null);
 
-  getToken(): string | null {
-    return this.token();
+  getUsername(): string | null {
+    return this.currentUser();
   }
 
   async login(body: LoginRequestModel): Promise<LoginResponseModel> {
-    const post$ = this.http.post('/api/auth/login', body);
-    const response = await firstValueFrom(post$);
+    const response = await firstValueFrom(this.http.post('/api/auth/login', body));
     const result = plainToInstance(LoginResponseModel, response);
-    this.setToken(result.token);
+    this.currentUser.set(result.username);
     return result;
   }
 
-  logout(): void {
-    localStorage.removeItem(AuthService.TOKEN_KEY);
-    this.token.set(null);
+  async logout(): Promise<void> {
+    // Il cookie è HttpOnly: solo il backend può cancellarlo
+    await firstValueFrom(this.http.post('/api/auth/logout', null));
+    this.currentUser.set(null);
   }
 
-  private setToken(token: string): void {
-    localStorage.setItem(AuthService.TOKEN_KEY, token);
-    this.token.set(token);
+  /**
+   * Chiamata all'avvio dell'app (vedi app.config.ts): se il cookie è ancora
+   * valido recupera la sessione, così il login sopravvive al refresh della pagina.
+   */
+  async loadSession(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.http.get('/api/auth/me'));
+      const result = plainToInstance(LoginResponseModel, response);
+      this.currentUser.set(result.username);
+    } catch {
+      this.currentUser.set(null);
+    }
   }
 }

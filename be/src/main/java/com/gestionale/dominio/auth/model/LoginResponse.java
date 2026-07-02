@@ -1,12 +1,10 @@
 package com.gestionale.dominio.auth.model;
 
 public class LoginResponse {
-    public String token;
+    // Il token NON viene piu' esposto nel body: viaggia solo nel cookie HttpOnly
     public String username;
-    public String tipo = "Bearer";   // tipo di token, standard
 
-    public LoginResponse(String token, String username) {
-        this.token = token;
+    public LoginResponse(String username) {
         this.username = username;
     }
 }

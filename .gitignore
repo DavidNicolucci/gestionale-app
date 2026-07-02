@@ -3,3 +3,6 @@
 
 # Variabili d'ambiente con segreti (usate da docker-compose)
 .env
+
+# Documento di ripresa per le chat col mentor (solo uso locale)
+HANDOFF.md
