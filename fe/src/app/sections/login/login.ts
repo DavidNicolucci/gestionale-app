@@ -1,14 +1,19 @@
-import { Component, inject, signal } from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, signal} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth/service/auth.service';
 import { LoginFormInterface } from './interfaces/login-form.interface';
+import {MatCard, MatCardContent, MatCardHeader, MatCardTitle} from '@angular/material/card';
+import {MatFormField, MatInput, MatLabel} from '@angular/material/input';
+import {MatProgressSpinner} from '@angular/material/progress-spinner';
+import {MatButton} from '@angular/material/button';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, MatCard, MatCardHeader, MatCardTitle, MatCardContent, MatFormField, MatLabel, MatInput, MatButton, MatProgressSpinner],
   templateUrl: './login.html',
   styleUrl: './login.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Login {
   protected readonly form = this.initForm();

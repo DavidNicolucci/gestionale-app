@@ -1,0 +1,16 @@
+.login-wrapper {
+  min-height: 100vh;
+
+  > .row {
+    min-height: 100vh;
+  }
+}
+
+.error {
+  color: var(--mat-sys-error, #b00020);
+  margin: 0 0 0.5rem;
+}
+
+button {
+  margin-top: 0.5rem;
+}

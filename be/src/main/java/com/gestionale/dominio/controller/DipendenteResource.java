@@ -16,7 +16,7 @@ import java.util.List;
 public class DipendenteResource {
 
     @Inject
-    DipendenteService service;
+    private DipendenteService service;
 
     @GET
     @RolesAllowed({"ADMIN", "OPERATOR"})       // entrambi i ruoli possono leggere

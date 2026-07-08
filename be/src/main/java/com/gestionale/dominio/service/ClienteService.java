@@ -13,20 +13,23 @@ import java.util.List;
 public class ClienteService {
 
     @Inject
-    ClienteRepository repository;
+    private ClienteRepository repository;
 
     public List<Cliente> listaTutti() {
         return repository.listAll();
     }
 
     public Cliente trovaPerId(Long id) {
+        //final e Optional
         Cliente c = repository.findById(id);
         if (c == null) {
             throw new NotFoundException("Cliente " + id + " non trovato");
         }
+
         return c;
     }
 
+    //mettere i log info
     @Transactional
     public Cliente crea(ClienteRequest req) {
         Cliente c = new Cliente();

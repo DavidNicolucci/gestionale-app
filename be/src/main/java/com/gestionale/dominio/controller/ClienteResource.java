@@ -14,7 +14,7 @@ import java.util.List;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class ClienteResource {
-
+ //TODO: cambiare nome cartella con resource
     @Inject
     ClienteService service;
 
@@ -37,6 +37,7 @@ public class ClienteResource {
         return ClienteResponse.da(service.crea(req));
     }
 
+    //modifica patch e togliere id e passare i campi che vanno modificato solo sul dto di request
     @PUT
     @Path("/{id}")
     @RolesAllowed("ADMIN")
