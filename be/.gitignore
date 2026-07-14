@@ -49,5 +49,8 @@ src/main/resources/*.p12
 # Claude Code
 .claude/
 
-src/main/resources/privateKey.pem
-src/main/resources/publicKey.pem
+# Chiavi RSA per la firma dei JWT.
+# Regola volutamente ampia: elencare i singoli file lasciava fuori gli intermedi di
+# openssl (rsaPrivateKey.pem, PKCS#1), che contengono lo STESSO segreto ed erano
+# finiti sotto versionamento.
+src/main/resources/*.pem
