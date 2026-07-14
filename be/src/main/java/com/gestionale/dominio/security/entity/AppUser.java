@@ -25,6 +25,11 @@ public class AppUser extends PanacheEntityBase {
     @Column(name = "password")
     public String password;
 
+    // La colonna esisteva gia' nello schema (BIT NOT NULL DEFAULT 1) ma non era mappata:
+    // il login non la controllava, quindi un utente disabilitato riusciva ad autenticarsi.
+    @Column(name = "enabled", nullable = false)
+    public boolean enabled;
+
     @Roles                            // <-- collega ai ruoli via la relazione
     @OneToMany
     @JoinColumn(name = "user_id")     // FK in app_user_role che punta a questo utente

@@ -4,37 +4,50 @@ import com.gestionale.dominio.security.entity.AppUser;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.transaction.Transactional;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Duration;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class AuthService {
 
+    // Hash bcrypt "civetta", usato quando l'username non esiste.
+    // Senza, il corto circuito dell'|| salterebbe la verifica bcrypt: la risposta
+    // tornerebbe in pochi ms per un utente inesistente e in ~100ms per uno esistente
+    // con password errata. Quella differenza di tempo rivela quali username sono validi
+    // (timing attack -> enumerazione utenti). Facendo girare bcrypt SEMPRE, i due casi
+    // costano uguale e il messaggio d'errore generico mantiene il suo scopo.
+    private static final String HASH_CIVETTA =
+            "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+
     @ConfigProperty(name = "mp.jwt.verify.issuer")
     String issuer;                       // riusa l'issuer configurato in properties
 
-    @Transactional
     public String autentica(String username, String password) {
-        // 1. Cerca l'utente per username (AppUser è l'entity di sicurezza che già hai)
+        // 1. Cerca l'utente per username
         AppUser user = AppUser.find("username", username).firstResult();
 
-        // 2. Verifica esistenza + password. Messaggio generico di proposito (vedi nota sotto)
-        if (user == null || !BcryptUtil.matches(password, user.password)) {
+        // 2. Verifica la password. Il confronto gira anche quando l'utente non esiste
+        //    (vedi HASH_CIVETTA): il costo in tempo deve essere lo stesso nei due casi.
+        String hashDaVerificare = (user != null) ? user.password : HASH_CIVETTA;
+        boolean passwordCorretta = BcryptUtil.matches(password, hashDaVerificare);
+
+        // 3. Un'unica risposta per tutti i motivi di fallimento: utente inesistente,
+        //    password errata o account disabilitato. Distinguerli nel messaggio direbbe
+        //    a un attaccante quali username esistono.
+        if (user == null || !passwordCorretta || !user.enabled) {
             throw new WebApplicationException("Credenziali non valide", 401);
         }
 
-        // 3. Raccoglie i ruoli dell'utente (dalla tabella app_user_role tramite la relazione)
+        // 4. Raccoglie i ruoli dell'utente (dalla tabella app_user_role tramite la relazione)
         Set<String> ruoli = user.roles.stream()
                 .map(r -> r.roleName)
                 .collect(Collectors.toSet());
 
-        // 4. Costruisce e firma il JWT
+        // 5. Costruisce e firma il JWT
         return Jwt.issuer(issuer)
                 .upn(username)                       // "user principal name": chi è l'utente
                 .groups(ruoli)                       // i ruoli -> diventano i @RolesAllowed

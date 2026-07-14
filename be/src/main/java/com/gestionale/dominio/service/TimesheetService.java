@@ -20,12 +20,14 @@ public class TimesheetService {
     @Inject DipendenteRepository dipendenteRepository;
     @Inject SitoRepository sitoRepository;
 
+    // Non listAll(): il DTO legge dipendente e sito, che sono LAZY. Senza la fetch join
+    // ogni riga scatenerebbe 2 query aggiuntive (N+1).
     public List<Timesheet> listaTutti() {
-        return repository.listAll();
+        return repository.listaConRelazioni();
     }
 
     public Timesheet trovaPerId(Long id) {
-        Timesheet t = repository.findById(id);
+        Timesheet t = repository.perIdConRelazioni(id);
         if (t == null) {
             throw new NotFoundException("Timesheet " + id + " non trovato");
         }

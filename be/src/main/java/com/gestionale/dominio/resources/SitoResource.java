@@ -1,4 +1,4 @@
-package com.gestionale.dominio.controller;
+package com.gestionale.dominio.resources;
 
 import com.gestionale.dominio.model.dto.SitoRequest;
 import com.gestionale.dominio.model.dto.SitoResponse;

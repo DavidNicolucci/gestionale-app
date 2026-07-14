@@ -1,0 +1,15 @@
+<header class="topbar">
+  <span class="brand">Gestionale</span>
+
+  <div class="user">
+    <span>{{ getUsername() }}</span>
+    <button mat-stroked-button type="button" [disabled]="loggingOut()" (click)="onLogout()">
+      Esci
+    </button>
+  </div>
+</header>
+
+<main class="content">
+  <h1>Benvenuto, {{ getUsername() }}</h1>
+  <p>Sei autenticato. Da qui costruiremo le sezioni del gestionale.</p>
+</main>

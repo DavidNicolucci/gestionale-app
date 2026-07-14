@@ -1,4 +1,4 @@
-package com.gestionale.dominio.controller;
+package com.gestionale.dominio.resources;
 
 import com.gestionale.dominio.model.dto.DipendenteRequest;
 import com.gestionale.dominio.model.dto.DipendenteResponse;
@@ -16,34 +16,32 @@ import java.util.List;
 public class DipendenteResource {
 
     @Inject
-    private DipendenteService service;
+    DipendenteService service;                 // package-private: ARC evita la reflection
 
     @GET
     @RolesAllowed({"ADMIN", "OPERATOR"})       // entrambi i ruoli possono leggere
     public List<DipendenteResponse> lista() {
-        return service.listaTutti().stream()
-                .map(DipendenteResponse::da)
-                .toList();
+        return service.listaTutti();
     }
 
     @GET
     @Path("/{id}")
     @RolesAllowed({"ADMIN", "OPERATOR"})
     public DipendenteResponse dettaglio(@PathParam("id") Long id) {
-        return DipendenteResponse.da(service.trovaPerId(id));
+        return service.trovaPerId(id);
     }
 
     @POST
     @RolesAllowed("ADMIN")                      // solo ADMIN può creare
     public DipendenteResponse crea(@Valid DipendenteRequest req) {
-        return DipendenteResponse.da(service.crea(req));
+        return service.crea(req);
     }
 
     @PUT
     @Path("/{id}")
     @RolesAllowed("ADMIN")
     public DipendenteResponse aggiorna(@PathParam("id") Long id, @Valid DipendenteRequest req) {
-        return DipendenteResponse.da(service.aggiorna(id, req));
+        return service.aggiorna(id, req);
     }
 
     @DELETE

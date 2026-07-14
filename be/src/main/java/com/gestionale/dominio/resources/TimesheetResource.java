@@ -1,4 +1,4 @@
-package com.gestionale.dominio.controller;
+package com.gestionale.dominio.resources;
 
 import com.gestionale.dominio.model.dto.TimesheetRequest;
 import com.gestionale.dominio.model.dto.TimesheetResponse;
