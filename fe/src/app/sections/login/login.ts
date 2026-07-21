@@ -3,6 +3,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth/service/auth.service';
 import { LoginFormInterface } from './interfaces/login-form.interface';
+import { AppRoute } from '../../shared/enums/app-route.enum';
 import {MatFormField, MatInput, MatLabel, MatSuffix} from '@angular/material/input';
 import {MatButton, MatIconButton} from '@angular/material/button';
 import {MatIcon} from '@angular/material/icon';
@@ -44,7 +45,7 @@ export class Login {
 
     try {
       await this.auth.login(this.form.getRawValue());
-      await this.router.navigate(['/']);
+      await this.router.navigate(['/', AppRoute.HOME]);
     } catch {
       this.errorMessage.set('Credenziali non valide');
     } finally {

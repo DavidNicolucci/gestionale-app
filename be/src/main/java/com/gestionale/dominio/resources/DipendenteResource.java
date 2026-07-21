@@ -1,5 +1,6 @@
 package com.gestionale.dominio.resources;
 
+import com.gestionale.dominio.model.dto.DipendentePatchRequest;
 import com.gestionale.dominio.model.dto.DipendenteRequest;
 import com.gestionale.dominio.model.dto.DipendenteResponse;
 import com.gestionale.dominio.model.dto.DipendenteRicercaRequest;
@@ -48,10 +49,11 @@ public class DipendenteResource {
         return service.crea(req);
     }
 
-    @PUT
+    // PATCH e non PUT: si mandano solo i campi da cambiare, gli altri restano come sono.
+    @PATCH
     @Path("/{id}")
     @RolesAllowed("ADMIN")
-    public DipendenteResponse aggiorna(@PathParam("id") Long id, @Valid DipendenteRequest req) {
+    public DipendenteResponse aggiorna(@PathParam("id") Long id, @Valid DipendentePatchRequest req) {
         return service.aggiorna(id, req);
     }
 

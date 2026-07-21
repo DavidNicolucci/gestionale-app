@@ -6,6 +6,7 @@ import com.gestionale.dominio.model.entity.Timesheet;
 import com.gestionale.dominio.repository.DipendenteRepository;
 import com.gestionale.dominio.repository.SitoRepository;
 import com.gestionale.dominio.repository.TimesheetRepository;
+import com.gestionale.dominio.model.dto.TimesheetPatchRequest;
 import com.gestionale.dominio.model.dto.TimesheetRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -54,10 +55,11 @@ public class TimesheetService {
         return t;
     }
 
+    // Modifica parziale: cambia solo i campi arrivati nella richiesta.
     @Transactional
-    public Timesheet aggiorna(Long id, TimesheetRequest req) {
+    public Timesheet aggiorna(Long id, TimesheetPatchRequest req) {
         Timesheet t = trovaPerId(id);
-        applica(t, req);
+        applicaPatch(t, req);
         LOG.infof("Timesheet aggiornato: id=%d", id);
         // Niente persist: Hibernate vede le modifiche e fa l'UPDATE a fine transazione.
         return t;
@@ -85,5 +87,27 @@ public class TimesheetService {
         t.dataLavoro = req.dataLavoro;
         t.oreLavorate = req.oreLavorate;
         t.note = req.note;
+    }
+
+    // Modifica parziale: cambia solo i campi arrivati nella richiesta.
+    // Un campo null vuol dire "non toccarlo", quindi lo saltiamo.
+    private void applicaPatch(Timesheet t, TimesheetPatchRequest req) {
+        if (req.dipendenteId != null) {
+            t.dipendente = dipendenteRepository.findByIdOptional(req.dipendenteId)
+                    .orElseThrow(() -> new NotFoundException("Dipendente " + req.dipendenteId + " non trovato"));
+        }
+        if (req.sitoId != null) {
+            t.sito = sitoRepository.findByIdOptional(req.sitoId)
+                    .orElseThrow(() -> new NotFoundException("Sito " + req.sitoId + " non trovato"));
+        }
+        if (req.dataLavoro != null) {
+            t.dataLavoro = req.dataLavoro;
+        }
+        if (req.oreLavorate != null) {
+            t.oreLavorate = req.oreLavorate;
+        }
+        if (req.note != null) {
+            t.note = req.note;
+        }
     }
 }

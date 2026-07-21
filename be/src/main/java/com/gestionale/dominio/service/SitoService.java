@@ -4,6 +4,7 @@ import com.gestionale.dominio.model.entity.Cliente;
 import com.gestionale.dominio.model.entity.Sito;
 import com.gestionale.dominio.repository.ClienteRepository;
 import com.gestionale.dominio.repository.SitoRepository;
+import com.gestionale.dominio.model.dto.SitoPatchRequest;
 import com.gestionale.dominio.model.dto.SitoRequest;
 import com.gestionale.dominio.model.dto.SitoResponse;
 import com.gestionale.dominio.model.dto.SitoRicercaRequest;
@@ -67,12 +68,20 @@ public class SitoService {
         return s;
     }
 
+    // Modifica parziale: cambia solo i campi arrivati nella richiesta, gli altri
+    // restano come sono. Un campo null vuol dire "non toccarlo".
     @Transactional
-    public Sito aggiorna(Long id, SitoRequest req) {
+    public Sito aggiorna(Long id, SitoPatchRequest req) {
         Sito s = trovaPerId(id);
-        s.nome = req.nome;
-        s.indirizzo = req.indirizzo;
-        s.cliente = caricaCliente(req.clienteId);
+        if (req.nome != null) {
+            s.nome = req.nome;
+        }
+        if (req.indirizzo != null) {
+            s.indirizzo = req.indirizzo;
+        }
+        if (req.clienteId != null) {
+            s.cliente = caricaCliente(req.clienteId);
+        }
         LOG.infof("Sito aggiornato: id=%d", id);
         // Niente persist: Hibernate vede le modifiche e fa l'UPDATE a fine transazione.
         return s;

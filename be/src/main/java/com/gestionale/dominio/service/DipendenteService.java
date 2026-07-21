@@ -1,5 +1,6 @@
 package com.gestionale.dominio.service;
 
+import com.gestionale.dominio.model.dto.DipendentePatchRequest;
 import com.gestionale.dominio.model.dto.DipendenteRequest;
 import com.gestionale.dominio.model.dto.DipendenteResponse;
 import com.gestionale.dominio.model.dto.DipendenteRicercaRequest;
@@ -87,9 +88,9 @@ public class DipendenteService {
     @Transactional
     @CacheInvalidateAll(cacheName = CACHE_LISTA)      // la lista cambia
     @CacheInvalidate(cacheName = CACHE_SINGOLO)       // e anche questo dipendente
-    public DipendenteResponse aggiorna(@CacheKey Long id, DipendenteRequest req) {
+    public DipendenteResponse aggiorna(@CacheKey Long id, DipendentePatchRequest req) {
         Dipendente d = caricaEntity(id);  // 404 se non esiste
-        copiaCampi(req, d);
+        applicaPatch(req, d);
         // Niente persist: l'oggetto arriva dal database, Hibernate vede le modifiche
         // e fa l'UPDATE da solo alla fine della transazione.
         return DipendenteResponse.da(d);
@@ -122,5 +123,41 @@ public class DipendenteService {
         d.tipoContratto = req.tipoContratto;
         d.dataAssunzione = req.dataAssunzione;
         d.dataScadenza = req.dataScadenza;
+    }
+
+    // Modifica parziale: copia solo i campi arrivati nella richiesta.
+    // Un campo null vuol dire "non toccarlo", quindi lo saltiamo.
+    private void applicaPatch(DipendentePatchRequest req, Dipendente d) {
+        if (req.nome != null) {
+            d.nome = req.nome;
+        }
+        if (req.cognome != null) {
+            d.cognome = req.cognome;
+        }
+        if (req.codiceFiscale != null) {
+            // Come in crea(), il codice fiscale deve restare unico. Qui pero' escludiamo
+            // il dipendente che stiamo modificando: senza "id <> ?2" troverebbe se stesso
+            // e darebbe 409 anche a chi rimanda lo stesso codice fiscale senza cambiarlo.
+            if (repository.count("codiceFiscale = ?1 and id <> ?2", req.codiceFiscale, d.id) > 0) {
+                throw new WebApplicationException(
+                        "Esiste già un dipendente con codice fiscale " + req.codiceFiscale, 409);
+            }
+            d.codiceFiscale = req.codiceFiscale;
+        }
+        if (req.dataNascita != null) {
+            d.dataNascita = req.dataNascita;
+        }
+        if (req.nazionalita != null) {
+            d.nazionalita = req.nazionalita;
+        }
+        if (req.tipoContratto != null) {
+            d.tipoContratto = req.tipoContratto;
+        }
+        if (req.dataAssunzione != null) {
+            d.dataAssunzione = req.dataAssunzione;
+        }
+        if (req.dataScadenza != null) {
+            d.dataScadenza = req.dataScadenza;
+        }
     }
 }

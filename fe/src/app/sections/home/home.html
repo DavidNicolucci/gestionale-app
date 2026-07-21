@@ -13,3 +13,14 @@
   <h1>Benvenuto, {{ getUsername() }}</h1>
   <p>Sei autenticato. Da qui costruiremo le sezioni del gestionale.</p>
 </main>
+
+
+<div class="container-fluid mt-3">
+  <div class="row g-3">
+    @for (card of cards(); track card.route) {
+      <div class="col-12 col-sm-6 col-lg-3">
+        <app-dashboard-card [card]="card" />
+      </div>
+    }
+  </div>
+</div>

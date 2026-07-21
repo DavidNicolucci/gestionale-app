@@ -1,5 +1,6 @@
 package com.gestionale.dominio.resources;
 
+import com.gestionale.dominio.model.dto.SitoPatchRequest;
 import com.gestionale.dominio.model.dto.SitoRequest;
 import com.gestionale.dominio.model.dto.SitoResponse;
 import com.gestionale.dominio.model.dto.SitoRicercaRequest;
@@ -47,10 +48,11 @@ public class SitoResource {
         return SitoResponse.da(service.crea(req));
     }
 
-    @PUT
+    // PATCH e non PUT: si mandano solo i campi da cambiare, gli altri restano come sono.
+    @PATCH
     @Path("/{id}")
     @RolesAllowed("ADMIN")
-    public SitoResponse aggiorna(@PathParam("id") Long id, @Valid SitoRequest req) {
+    public SitoResponse aggiorna(@PathParam("id") Long id, @Valid SitoPatchRequest req) {
         return SitoResponse.da(service.aggiorna(id, req));
     }
 

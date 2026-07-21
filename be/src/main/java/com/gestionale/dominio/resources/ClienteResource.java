@@ -1,5 +1,6 @@
 package com.gestionale.dominio.resources;
 
+import com.gestionale.dominio.model.dto.ClientePatchRequest;
 import com.gestionale.dominio.model.dto.ClienteRequest;
 import com.gestionale.dominio.model.dto.ClienteResponse;
 import com.gestionale.dominio.model.dto.ClienteRicercaRequest;
@@ -48,11 +49,11 @@ public class ClienteResource {
         return ClienteResponse.da(service.crea(req));
     }
 
-    //modifica patch e togliere id e passare i campi che vanno modificato solo sul dto di request
-    @PUT
+    // PATCH e non PUT: si mandano solo i campi da cambiare, gli altri restano come sono.
+    @PATCH
     @Path("/{id}")
     @RolesAllowed("ADMIN")
-    public ClienteResponse aggiorna(@PathParam("id") Long id, @Valid ClienteRequest req) {
+    public ClienteResponse aggiorna(@PathParam("id") Long id, @Valid ClientePatchRequest req) {
         return ClienteResponse.da(service.aggiorna(id, req));
     }
 

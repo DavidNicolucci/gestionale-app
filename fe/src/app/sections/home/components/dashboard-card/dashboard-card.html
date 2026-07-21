@@ -1,0 +1,9 @@
+<mat-card class="dashboard-card" [routerLink]="['/', card().route]">
+  <mat-card-header>
+    <mat-icon mat-card-avatar>{{ card().icona }}</mat-icon>
+    <mat-card-title>{{ card().titolo }}</mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <p>{{ card().descrizione }}</p>
+  </mat-card-content>
+</mat-card>

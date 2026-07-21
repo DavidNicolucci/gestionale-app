@@ -1,5 +1,6 @@
 package com.gestionale.dominio.resources;
 
+import com.gestionale.dominio.model.dto.TimesheetPatchRequest;
 import com.gestionale.dominio.model.dto.TimesheetRequest;
 import com.gestionale.dominio.model.dto.TimesheetResponse;
 import com.gestionale.dominio.service.TimesheetService;
@@ -37,10 +38,11 @@ public class TimesheetResource {
         return TimesheetResponse.da(service.crea(req));
     }
 
-    @PUT
+    // PATCH e non PUT: si mandano solo i campi da cambiare, gli altri restano come sono.
+    @PATCH
     @Path("/{id}")
     @RolesAllowed({"ADMIN", "OPERATOR"})
-    public TimesheetResponse aggiorna(@PathParam("id") Long id, @Valid TimesheetRequest req) {
+    public TimesheetResponse aggiorna(@PathParam("id") Long id, @Valid TimesheetPatchRequest req) {
         return TimesheetResponse.da(service.aggiorna(id, req));
     }
 

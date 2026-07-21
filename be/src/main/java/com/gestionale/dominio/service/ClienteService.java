@@ -1,5 +1,6 @@
 package com.gestionale.dominio.service;
 
+import com.gestionale.dominio.model.dto.ClientePatchRequest;
 import com.gestionale.dominio.model.dto.ClienteRequest;
 import com.gestionale.dominio.model.dto.ClienteResponse;
 import com.gestionale.dominio.model.dto.ClienteRicercaRequest;
@@ -63,12 +64,20 @@ public class ClienteService {
         return c;
     }
 
+    // Modifica parziale: cambia solo i campi arrivati nella richiesta, gli altri
+    // restano come sono. Un campo null vuol dire "non toccarlo".
     @Transactional
-    public Cliente aggiorna(Long id, ClienteRequest req) {
+    public Cliente aggiorna(Long id, ClientePatchRequest req) {
         Cliente c = trovaPerId(id);
-        c.ragioneSociale = req.ragioneSociale;
-        c.partitaIva = req.partitaIva;
-        c.indirizzo = req.indirizzo;
+        if (req.ragioneSociale != null) {
+            c.ragioneSociale = req.ragioneSociale;
+        }
+        if (req.partitaIva != null) {
+            c.partitaIva = req.partitaIva;
+        }
+        if (req.indirizzo != null) {
+            c.indirizzo = req.indirizzo;
+        }
         LOG.infof("Cliente aggiornato: id=%d", id);
         // Niente persist: l'oggetto arriva dal database, Hibernate si accorge da solo
         // delle modifiche e fa l'UPDATE quando la transazione finisce.
