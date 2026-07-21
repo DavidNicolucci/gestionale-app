@@ -1,5 +1,5 @@
 import {ChangeDetectionStrategy, Component, input} from '@angular/core';
-import {DashboardCardInterface} from '../../interfaces/dashboard-card.interface';
+import {DashboardCardActionInterface, DashboardCardInterface} from '../../interfaces/dashboard-card.interface';
 import {MatIcon} from '@angular/material/icon';
 import {RouterLink} from '@angular/router';
 
@@ -16,4 +16,10 @@ import {RouterLink} from '@angular/router';
 })
 export class DashboardCard {
   readonly card = input.required<DashboardCardInterface>();
+
+  /** Rotta della sezione, con l'eventuale segmento figlio dell'azione. */
+  protected getAzioneLink(azione: DashboardCardActionInterface): string[] {
+    const base = ['/', this.card().route];
+    return azione.segmento ? [...base, azione.segmento] : base;
+  }
 }

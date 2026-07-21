@@ -27,3 +27,28 @@ export enum DashboardCardColor {
   SITI = '#f59e0b',
   TIMESHEET = '#0ea5e9',
 }
+
+/** Etichette delle azioni rapide mostrate in fondo alla card. */
+export enum DashboardCardActionLabel {
+  ELENCO = 'Elenco',
+  NUOVO = 'Nuovo',
+  INSERISCI_ORE = 'Inserisci ore',
+  RIEPILOGO = 'Riepilogo',
+}
+
+/** Icone Material delle azioni rapide. */
+export enum DashboardCardActionIcon {
+  ELENCO = 'list',
+  NUOVO = 'add',
+  INSERISCI_ORE = 'edit_calendar',
+  RIEPILOGO = 'summarize',
+}
+
+/**
+ * Segmento di rotta figlio, appeso alla rotta della sezione.
+ * L'azione che punta alla sezione stessa (l'elenco) non ha segmento.
+ */
+export enum DashboardCardActionRoute {
+  NUOVO = 'nuovo',
+  RIEPILOGO = 'riepilogo',
+}

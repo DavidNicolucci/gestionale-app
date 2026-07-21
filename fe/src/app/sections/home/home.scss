@@ -44,9 +44,11 @@
   /* Due card per riga, con stacco esplicito su entrambi gli assi. */
   .cards {
     display: grid;
-    gap: 6rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 2rem;
+    row-gap: 5rem;
     margin-top: 2rem;
-    width: 30%;
+    max-width: 900px;
   }
 
   @media (max-width: 768px) {

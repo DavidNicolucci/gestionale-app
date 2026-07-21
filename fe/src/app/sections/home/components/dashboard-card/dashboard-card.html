@@ -1,16 +1,28 @@
-<a
-  class="dashboard-card"
-  [style.--card-accent]="card().colore"
-  [routerLink]="['/', card().route]"
->
-  <span class="icon-tile">
-    <mat-icon>{{ card().icona }}</mat-icon>
-  </span>
+<div class="dashboard-card" [style.--card-accent]="card().colore">
+  <a class="principale" [routerLink]="['/', card().route]">
+    <span class="icon-tile">
+      <mat-icon>{{ card().icona }}</mat-icon>
+    </span>
 
-  <span class="text">
-    <span class="titolo">{{ card().titolo }}</span>
-    <span class="descrizione">{{ card().descrizione }}</span>
-  </span>
+    <span class="text">
+      <span class="titolo">{{ card().titolo }}</span>
+      <span class="descrizione">{{ card().descrizione }}</span>
+    </span>
 
-  <mat-icon class="chevron">chevron_right</mat-icon>
-</a>
+    <span class="apri">
+      Apri
+      <mat-icon>arrow_forward</mat-icon>
+    </span>
+  </a>
+
+  @if (card().azioni.length) {
+    <div class="azioni">
+      @for (azione of card().azioni; track azione.label) {
+        <a class="chip" [routerLink]="getAzioneLink(azione)">
+          <mat-icon>{{ azione.icona }}</mat-icon>
+          {{ azione.label }}
+        </a>
+      }
+    </div>
+  }
+</div>
