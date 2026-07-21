@@ -25,7 +25,7 @@ public class Timesheet extends PanacheEntityBase {
     public LocalDate dataLavoro;
 
     @Column(name = "ore_lavorate", nullable = false)
-    public BigDecimal oreLavorate;     // BigDecimal <-> DECIMAL(5,2): precisione esatta
+    public BigDecimal oreLavorate;     // BigDecimal e non double: sui decimali non arrotonda
 
     @Column(name = "note")
     public String note;

@@ -12,8 +12,8 @@ public class ChatResource {
     ChatAiService chatService;
 
     @POST
-    @Consumes(MediaType.TEXT_PLAIN)        // riceve la domanda come testo semplice
-    @Produces(MediaType.TEXT_PLAIN)        // risponde con testo
+    @Consumes(MediaType.TEXT_PLAIN)        // la domanda arriva come testo, non JSON
+    @Produces(MediaType.TEXT_PLAIN)        // e anche la risposta e' testo
     @RolesAllowed({"ADMIN", "OPERATOR"})
     public String chat(String domanda) {
         return chatService.chat(domanda);

@@ -33,8 +33,8 @@ public class TimesheetService {
         this.sitoRepository = sitoRepository;
     }
 
-    // Non listAll(): il DTO legge dipendente e sito, che sono LAZY. Senza la fetch join
-    // ogni riga scatenerebbe 2 query aggiuntive (N+1).
+    // Non usiamo listAll perche' il DTO mostra dipendente e sito: senza caricarli
+    // insieme, ogni riga farebbe 2 query in piu'.
     public List<Timesheet> listaTutti() {
         return repository.listaConRelazioni();
     }
@@ -47,7 +47,7 @@ public class TimesheetService {
     @Transactional
     public Timesheet crea(TimesheetRequest req) {
         Timesheet t = new Timesheet();
-        applica(t, req);            // logica di mapping condivisa (vedi sotto)
+        applica(t, req);
         repository.persist(t);
         LOG.infof("Timesheet creato: id=%d, dipendenteId=%d, data=%s, ore=%s",
                 t.id, req.dipendenteId, req.dataLavoro, req.oreLavorate);
@@ -59,7 +59,8 @@ public class TimesheetService {
         Timesheet t = trovaPerId(id);
         applica(t, req);
         LOG.infof("Timesheet aggiornato: id=%d", id);
-        return t;                   // dirty checking: UPDATE al commit
+        // Niente persist: Hibernate vede le modifiche e fa l'UPDATE a fine transazione.
+        return t;
     }
 
     @Transactional
@@ -71,8 +72,8 @@ public class TimesheetService {
         LOG.infof("Timesheet eliminato: id=%d", id);
     }
 
-    // Metodo privato condiviso tra crea e aggiorna: risolve le relazioni e valorizza i campi.
-    // Evita di duplicare la stessa logica in due punti (principio DRY).
+    // Carica dipendente e sito e riempie i campi. Usato sia da crea che da aggiorna,
+    // per non scrivere due volte lo stesso codice.
     private void applica(Timesheet t, TimesheetRequest req) {
         Dipendente dip = dipendenteRepository.findByIdOptional(req.dipendenteId)
                 .orElseThrow(() -> new NotFoundException("Dipendente " + req.dipendenteId + " non trovato"));

@@ -19,9 +19,10 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 @Consumes(MediaType.APPLICATION_JSON)
 public class AuthResource {
 
-    // Nome del cookie che trasporta il JWT: deve combaciare con mp.jwt.token.cookie in application.properties
+    // Nome del cookie che contiene il token. Deve essere uguale a mp.jwt.token.cookie
+    // scritto in application.properties, altrimenti Quarkus non lo trova.
     public static final String COOKIE_NAME = "gestionale_jwt";
-    // Durata del cookie allineata alla scadenza del token (8 ore, vedi AuthService)
+    // Stessa durata del token (8 ore, vedi AuthService)
     private static final int COOKIE_MAX_AGE_SECONDS = 8 * 60 * 60;
 
     @Inject
@@ -32,11 +33,12 @@ public class AuthResource {
 
     @POST
     @Path("/login")
-    @PermitAll                              // il login DEVE essere accessibile senza autenticazione
+    @PermitAll                              // ovvio: al login si arriva senza essere loggati
     public Response login(@Valid LoginRequest req) {
         String token = authService.autentica(req.username, req.password);
-        // Il token viaggia SOLO nel cookie HttpOnly: JavaScript non puo' leggerlo (protezione XSS).
-        // SameSite=Strict impedisce che il browser lo invii su richieste provenienti da altri siti (protezione CSRF).
+        // Il token sta solo nel cookie. httpOnly: il JavaScript della pagina non puo'
+        // leggerlo, quindi non se lo puo' rubare uno script malevolo.
+        // sameSite STRICT: il browser lo manda solo se la richiesta parte dal nostro sito.
         NewCookie cookie = new NewCookie.Builder(COOKIE_NAME)
                 .value(token)
                 .path("/")
@@ -54,7 +56,7 @@ public class AuthResource {
     @Path("/logout")
     @PermitAll
     public Response logout() {
-        // Sovrascrive il cookie con maxAge=0: il browser lo elimina subito
+        // Riscrive il cookie vuoto con durata 0: il browser lo cancella subito
         NewCookie cookie = new NewCookie.Builder(COOKIE_NAME)
                 .value("")
                 .path("/")
@@ -70,8 +72,8 @@ public class AuthResource {
     @Path("/me")
     @Authenticated
     public LoginResponse me() {
-        // Il frontend non puo' leggere il cookie: chiama questo endpoint al refresh
-        // della pagina per sapere se la sessione e' ancora valida e chi e' l'utente
+        // Il frontend non puo' leggere il cookie, quindi quando si ricarica la pagina
+        // chiama qui per sapere se e' ancora loggato e chi e' l'utente.
         return new LoginResponse(jwt.getName());
     }
 }

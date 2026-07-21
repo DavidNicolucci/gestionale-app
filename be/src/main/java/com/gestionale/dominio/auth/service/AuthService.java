@@ -16,16 +16,14 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class AuthService {
 
-    // Hash bcrypt "civetta", usato quando l'username non esiste.
-    // Senza, il corto circuito dell'|| salterebbe la verifica bcrypt: la risposta
-    // tornerebbe in pochi ms per un utente inesistente e in ~100ms per uno esistente
-    // con password errata. Quella differenza di tempo rivela quali username sono validi
-    // (timing attack -> enumerazione utenti). Facendo girare bcrypt SEMPRE, i due casi
-    // costano uguale e il messaggio d'errore generico mantiene il suo scopo.
+    // Password finta, usata quando l'username non esiste.
+    // Serve per far durare il login sempre lo stesso tempo: se saltassimo il controllo
+    // della password, la risposta arriverebbe molto piu' in fretta per un utente che non
+    // esiste, e cronometrando si capirebbe quali username sono validi.
     private static final String HASH_CIVETTA =
             "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
-    private final String issuer;      // final: letto una volta alla costruzione, mai piu' modificato
+    private final String issuer;      // chi emette il token, letto dalla configurazione
 
     @Inject
     public AuthService(@ConfigProperty(name = "mp.jwt.verify.issuer") String issuer) {
@@ -33,34 +31,32 @@ public class AuthService {
     }
 
     public String autentica(String username, String password) {
-        // 1. Cerca l'utente. Optional invece di null: il "non esiste" e' nella firma.
+        // 1. Cerca l'utente.
         Optional<AppUser> utente = AppUser.find("username", username).firstResultOptional();
 
-        // 2. Verifica la password. Il confronto gira SEMPRE, anche quando l'utente non
-        //    esiste (vedi HASH_CIVETTA): il costo in tempo dev'essere lo stesso nei due casi.
-        //    Da qui l'uso di map(...).orElse(...) e non di un ifPresent: serve valutare
-        //    comunque il bcrypt.
+        // 2. Controlla la password. Il controllo lo facciamo sempre, anche se l'utente
+        //    non esiste (usando la password finta): deve metterci lo stesso tempo.
         String hashDaVerificare = utente.map(u -> u.password).orElse(HASH_CIVETTA);
         boolean passwordCorretta = BcryptUtil.matches(password, hashDaVerificare);
 
-        // 3. Un'unica risposta per tutti i motivi di fallimento: utente inesistente,
-        //    password errata o account disabilitato. Distinguerli nel messaggio direbbe
-        //    a un attaccante quali username esistono.
+        // 3. Stesso messaggio per tutti i casi: utente inesistente, password sbagliata
+        //    o account disattivato. Se li distinguessimo, diremmo a chi ci attacca
+        //    quali username esistono davvero.
         AppUser user = utente
                 .filter(u -> passwordCorretta)
                 .filter(u -> u.enabled)
                 .orElseThrow(() -> new WebApplicationException("Credenziali non valide", 401));
 
-        // 4. Raccoglie i ruoli dell'utente (dalla tabella app_user_role tramite la relazione)
+        // 4. Prende i ruoli dell'utente dalla tabella app_user_role
         Set<String> ruoli = user.roles.stream()
                 .map(r -> r.roleName)
                 .collect(Collectors.toSet());
 
-        // 5. Costruisce e firma il JWT
+        // 5. Crea il token e lo firma
         return Jwt.issuer(issuer)
-                .upn(username)                       // "user principal name": chi è l'utente
-                .groups(ruoli)                       // i ruoli -> diventano i @RolesAllowed
-                .expiresIn(Duration.ofHours(8))      // scadenza del token: 8 ore
-                .sign();                             // firma con la chiave privata
+                .upn(username)                       // chi e' l'utente
+                .groups(ruoli)                       // i ruoli che poi legge @RolesAllowed
+                .expiresIn(Duration.ofHours(8))      // dopo 8 ore va rifatto il login
+                .sign();                             // firma con la nostra chiave privata
     }
 }

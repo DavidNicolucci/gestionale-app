@@ -3,7 +3,8 @@ package com.gestionale.dominio.ai;
 import dev.langchain4j.service.SystemMessage;
 import io.quarkiverse.langchain4j.RegisterAiService;
 
-@RegisterAiService(tools = TimesheetTools.class)   // collega i tool a questo servizio AI
+// I "tools" sono i metodi che l'AI puo' chiamare per leggere i dati veri dal database
+@RegisterAiService(tools = TimesheetTools.class)
 public interface ChatAiService {
 
     @SystemMessage("""

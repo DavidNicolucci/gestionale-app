@@ -7,7 +7,7 @@ import java.time.LocalDate;
 public class TimesheetResponse {
     public Long id;
     public Long dipendenteId;
-    public String dipendenteNominativo;     // "Mario Rossi" — comodo per il frontend
+    public String dipendenteNominativo;     // nome e cognome insieme, es. "Mario Rossi"
     public Long sitoId;
     public String sitoNome;
     public LocalDate dataLavoro;

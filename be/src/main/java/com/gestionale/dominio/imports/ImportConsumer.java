@@ -33,7 +33,7 @@ public class ImportConsumer {
     @Inject SitoRepository sitoRepo;
     @Inject TimesheetRepository timesheetRepo;
 
-    @Incoming("import-in")              // ASCOLTA il canale in entrata: scatta a ogni messaggio
+    @Incoming("import-in")              // resta in ascolto sulla coda: parte a ogni messaggio
     @Transactional
     public void elabora(String jsonMessage) {
         String filePathToDelete = null;
@@ -49,9 +49,9 @@ public class ImportConsumer {
             try (FileInputStream fis = new FileInputStream(msg.filePath);
                  Workbook workbook = WorkbookFactory.create(fis)) {
 
-                Sheet sheet = workbook.getSheetAt(0);   // primo foglio
+                Sheet sheet = workbook.getSheetAt(0);   // leggiamo solo il primo foglio
 
-                // Parte da 1 per saltare la riga di intestazione (riga 0)
+                // Si parte da 1 perche' la riga 0 e' quella dei titoli delle colonne
                 for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                     Row row = sheet.getRow(i);
                     if (row == null) continue;
@@ -62,9 +62,8 @@ public class ImportConsumer {
                         LocalDate data  = getData(row.getCell(2));
                         BigDecimal ore  = getNumero(row.getCell(3));
 
-                        // Lookup: il dipendente e il sito devono esistere.
-                        // Optional dai repository -> niente null check, ma il caso "assente"
-                        // resta un errore di DATO (riga saltata), non di infrastruttura.
+                        // Dipendente e sito devono gia' esistere: se non li troviamo
+                        // e' un errore nei dati del file, saltiamo la riga e andiamo avanti.
                         Optional<Dipendente> dip = dipendenteRepo.perCodiceFiscale(cf);
                         Optional<Sito> sito = sitoRepo.perNome(nomeSito);
 
@@ -84,9 +83,11 @@ public class ImportConsumer {
                         righeOk++;
 
                     } catch (Exception e) {
+                        // Se il problema e' il database inutile continuare con le altre
+                        // righe: fermiamo tutto subito.
                         if (isDatabaseOrTransactionException(e)) {
                             isDbOrTxError = true;
-                            throw e; // Rilancia per attivare il fail-fast ed uscire subito
+                            throw e;
                         }
                         LOG.warnf("Errore sulla riga %d: %s", i, e.getMessage());
                         righeErrore++;
@@ -97,7 +98,7 @@ public class ImportConsumer {
             LOG.infof("Import completato (%s): %d righe inserite, %d errori",
                     msg.fileName, righeOk, righeErrore);
 
-            // Pulizia: rimuove il file temporaneo dopo l'elaborazione con successo
+            // Andato tutto bene: cancelliamo il file temporaneo
             if (filePathToDelete != null) {
                 Files.deleteIfExists(Paths.get(filePathToDelete));
             }
@@ -105,8 +106,9 @@ public class ImportConsumer {
         } catch (Exception e) {
             LOG.errorf(e, "Errore fatale nell'elaborazione del messaggio di import. DB Error? %b", isDbOrTxError);
 
-            // Se l'errore NON è di DB/transazionale (es. file corrotto o non leggibile):
-            // Rimuoviamo il file temporaneo per evitare perdite di spazio su disco
+            // Se il problema non e' il database (es. file rovinato) il file non serve
+            // piu' a niente: lo cancelliamo per non riempire il disco.
+            // Se invece e' il database lo teniamo, cosi' si puo' riprovare.
             if (!isDbOrTxError && filePathToDelete != null) {
                 try {
                     Files.deleteIfExists(Paths.get(filePathToDelete));
@@ -115,12 +117,12 @@ public class ImportConsumer {
                 }
             }
 
-            // Rilanciamo l'eccezione per notificare il fallimento al broker (Nack)
+            // Rilanciamo l'errore per dire a RabbitMQ che il messaggio non e' andato a buon fine
             throw new RuntimeException("Errore fatale durante l'elaborazione dell'import", e);
         }
     }
 
-    // Helper: identifica se una eccezione o la sua causa è riconducibile al Database o a Transazioni
+    // Guarda l'errore e tutti quelli dentro di lui per capire se arriva dal database.
     private boolean isDatabaseOrTransactionException(Throwable e) {
         if (e == null) return false;
         String className = e.getClass().getName();
@@ -133,30 +135,30 @@ public class ImportConsumer {
         return isDatabaseOrTransactionException(e.getCause());
     }
 
-    // Helper: legge una cella come stringa in modo sicuro
+    // Legge una cella come testo, gestendo la cella vuota
     private String getString(Cell cell) {
         if (cell == null) return null;
         return cell.getStringCellValue().trim();
     }
 
-    // Legge una cella come numero, accettando sia celle numeriche sia testo "7.5"
+    // Legge una cella come numero: va bene sia una cella numerica sia il testo "7.5"
     private BigDecimal getNumero(Cell cell) {
         if (cell == null) return null;
         if (cell.getCellType() == CellType.NUMERIC) {
             return BigDecimal.valueOf(cell.getNumericCellValue());
         }
-        // se è testo, lo converto (gestisco anche la virgola decimale all'italiana)
+        // se e' testo lo converto, cambiando la virgola in punto (7,5 -> 7.5)
         String raw = cell.getStringCellValue().trim().replace(",", ".");
         return new BigDecimal(raw);
     }
 
-    // Legge una cella come data, accettando sia date Excel sia testo "2025-08-01"
+    // Legge una cella come data: va bene sia la data di Excel sia il testo "2025-08-01"
     private LocalDate getData(Cell cell) {
         if (cell == null) return null;
         if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
             return cell.getLocalDateTimeCellValue().toLocalDate();
         }
-        // se è testo, parso il formato ISO (yyyy-MM-dd)
+        // se e' testo mi aspetto il formato anno-mese-giorno
         String raw = cell.getStringCellValue().trim();
         return LocalDate.parse(raw);
     }

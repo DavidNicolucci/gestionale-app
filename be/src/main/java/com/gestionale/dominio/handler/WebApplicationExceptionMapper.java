@@ -9,14 +9,13 @@ import jakarta.ws.rs.ext.Provider;
 import org.jboss.logging.Logger;
 
 /**
- * Gestisce le eccezioni "attese", quelle che l'applicazione lancia di proposito per
- * dire al client cosa ha sbagliato:
- *   - NotFoundException            -> 404 (dai service: "Dipendente 7 non trovato")
- *   - WebApplicationException 401  -> AuthService: "Credenziali non valide"
- *   - WebApplicationException 409  -> DipendenteService: codice fiscale duplicato
+ * Gestisce gli errori che lanciamo apposta per dire al client cosa ha sbagliato:
+ *   - 404 dai service ("Dipendente 7 non trovato")
+ *   - 401 dal login ("Credenziali non valide")
+ *   - 409 quando il codice fiscale esiste gia'
  *
- * Senza questo mapper lo status arriva giusto ma il BODY E' VUOTO: il messaggio che
- * hai scritto nell'eccezione non raggiunge mai il client.
+ * Senza questa classe il codice di stato arriverebbe giusto ma con il body vuoto,
+ * e il messaggio che abbiamo scritto non lo vedrebbe nessuno.
  */
 @Provider
 public class WebApplicationExceptionMapper implements ExceptionMapper<WebApplicationException> {
@@ -32,16 +31,15 @@ public class WebApplicationExceptionMapper implements ExceptionMapper<WebApplica
         Response originale = exception.getResponse();
         int status = originale.getStatus();
 
-        // Se chi ha lanciato l'eccezione aveva gia' costruito un body, lo rispettiamo
-        // invece di sovrascriverlo.
+        // Se chi ha lanciato l'errore aveva gia' preparato una risposta, teniamo quella.
         if (originale.hasEntity()) {
             return originale;
         }
 
         String path = uriInfo != null ? uriInfo.getPath() : null;
 
-        // 4xx = colpa del client (input sbagliato, non autorizzato): WARN, non e' un guasto.
-        // 5xx = colpa nostra: ERROR, con lo stack trace.
+        // Errori 4xx: ha sbagliato il client, basta un warning.
+        // Errori 5xx: abbiamo sbagliato noi, logghiamo tutto l'errore.
         if (status >= 500) {
             LOG.errorf(exception, "Errore applicativo su %s", path);
         } else {

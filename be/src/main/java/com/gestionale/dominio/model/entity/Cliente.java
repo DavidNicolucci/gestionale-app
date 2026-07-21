@@ -2,9 +2,14 @@ package com.gestionale.dominio.model.entity;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 
+// @BatchSize dice a Hibernate di caricare i clienti a gruppi di 50 invece che uno per
+// volta. Serve nella lista dei siti: ogni sito mostra il nome del suo cliente, e senza
+// questa riga una pagina da 100 siti farebbe 100 query in piu'.
 @Entity
 @Table(name = "cliente")
+@BatchSize(size = 50)
 public class Cliente extends PanacheEntityBase {
 
     @Id

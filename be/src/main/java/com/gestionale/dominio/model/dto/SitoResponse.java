@@ -7,7 +7,7 @@ public class SitoResponse {
     public String nome;
     public String indirizzo;
     public Long clienteId;
-    public String clienteRagioneSociale;   // comodo per il frontend: mostra il nome, non solo l'id
+    public String clienteRagioneSociale;   // cosi' il frontend mostra il nome e non solo l'id
 
     public static SitoResponse da(Sito s) {
         SitoResponse r = new SitoResponse();

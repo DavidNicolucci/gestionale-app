@@ -36,13 +36,13 @@ public class TimesheetTools {
             "del periodo, entrambe nel formato AAAA-MM-GG. " +
             "Usalo quando l'utente chiede quante ore ha lavorato una persona in un certo periodo o mese.")
     public String oreLavorate(String nomeCompleto, LocalDate dataInizio, LocalDate dataFine) {
-        // La ricerca per nominativo la fa ora il DATABASE (repository.perNominativo):
-        // prima si caricavano TUTTI i dipendenti con listAll() per poi filtrarli in Java.
+        // La ricerca per nome la fa il database, non carichiamo tutti i dipendenti
+        // per poi filtrarli in Java.
         Optional<Dipendente> dip = dipendenteRepo.perNominativo(nomeCompleto);
 
         if (dip.isEmpty()) {
-            // Messaggio in chiaro e non eccezione: e' il MODELLO a leggere questo testo,
-            // e il system prompt gli dice di ammettere quando un dato non c'e' invece di inventarlo.
+            // Torniamo una frase e non un errore, perche' questo testo lo legge l'AI:
+            // cosi' risponde che il dipendente non c'e' invece di inventarsi i dati.
             return "Nessun dipendente trovato con nome '" + nomeCompleto + "'.";
         }
 

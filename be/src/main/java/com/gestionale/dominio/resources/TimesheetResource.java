@@ -32,7 +32,7 @@ public class TimesheetResource {
     }
 
     @POST
-    @RolesAllowed({"ADMIN", "OPERATOR"})    // anche l'OPERATOR inserisce ore manualmente
+    @RolesAllowed({"ADMIN", "OPERATOR"})    // le ore le inserisce anche l'OPERATOR
     public TimesheetResponse crea(@Valid TimesheetRequest req) {
         return TimesheetResponse.da(service.crea(req));
     }
@@ -46,7 +46,7 @@ public class TimesheetResource {
 
     @DELETE
     @Path("/{id}")
-    @RolesAllowed("ADMIN")                   // ma solo l'ADMIN può cancellare
+    @RolesAllowed("ADMIN")                   // ma cancella solo l'ADMIN
     public void elimina(@PathParam("id") Long id) {
         service.elimina(id);
     }

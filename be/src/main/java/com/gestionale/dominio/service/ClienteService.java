@@ -1,8 +1,12 @@
 package com.gestionale.dominio.service;
 
 import com.gestionale.dominio.model.dto.ClienteRequest;
+import com.gestionale.dominio.model.dto.ClienteResponse;
+import com.gestionale.dominio.model.dto.ClienteRicercaRequest;
+import com.gestionale.dominio.model.dto.PaginaResponse;
 import com.gestionale.dominio.model.entity.Cliente;
 import com.gestionale.dominio.repository.ClienteRepository;
+import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -27,8 +31,22 @@ public class ClienteService {
         return repository.listAll();
     }
 
-    // findByIdOptional().orElseThrow(): il "non trovato" e' gestito dalla firma stessa,
-    // non c'e' nessun null da controllare e nessun NullPointerException possibile.
+    // Ricerca paginata per la tabella della home. Partono due query, una per le righe
+    // e una per il totale, ma nascono dalla stessa query di partenza: cosi' i filtri
+    // sono per forza gli stessi e il totale non puo' essere sbagliato.
+    public PaginaResponse<ClienteResponse> cerca(ClienteRicercaRequest req) {
+        PanacheQuery<Cliente> query = repository
+                .cerca(req, req.sort())
+                .page(req.pagePanache());
+
+        List<ClienteResponse> risultati = query.list().stream()
+                .map(ClienteResponse::da)
+                .toList();
+
+        return PaginaResponse.di(risultati, query.pageCount(), req.pagina(), query.count());
+    }
+
+    // Se non c'e' lanciamo subito il 404, cosi' chi chiama non deve controllare il null.
     public Cliente trovaPerId(Long id) {
         return repository.findByIdOptional(id)
                 .orElseThrow(() -> new NotFoundException("Cliente " + id + " non trovato"));
@@ -52,7 +70,9 @@ public class ClienteService {
         c.partitaIva = req.partitaIva;
         c.indirizzo = req.indirizzo;
         LOG.infof("Cliente aggiornato: id=%d", id);
-        return c;   // dirty checking: l'UPDATE parte al commit
+        // Niente persist: l'oggetto arriva dal database, Hibernate si accorge da solo
+        // delle modifiche e fa l'UPDATE quando la transazione finisce.
+        return c;
     }
 
     @Transactional
@@ -61,8 +81,7 @@ public class ClienteService {
         if (!rimosso) {
             throw new NotFoundException("Cliente " + id + " non trovato");
         }
-        // ATTENZIONE: sito ha ON DELETE CASCADE sulla FK cliente_id -> eliminando un
-        // cliente spariscono anche tutti i suoi siti.
-        LOG.infof("Cliente eliminato: id=%d (con i siti collegati, per il CASCADE)", id);
+        // ATTENZIONE: cancellando un cliente il database cancella anche tutti i suoi siti.
+        LOG.infof("Cliente eliminato: id=%d (con i siti collegati)", id);
     }
 }

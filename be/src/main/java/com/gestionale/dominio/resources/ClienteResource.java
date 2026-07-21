@@ -2,6 +2,8 @@ package com.gestionale.dominio.resources;
 
 import com.gestionale.dominio.model.dto.ClienteRequest;
 import com.gestionale.dominio.model.dto.ClienteResponse;
+import com.gestionale.dominio.model.dto.ClienteRicercaRequest;
+import com.gestionale.dominio.model.dto.PaginaResponse;
 import com.gestionale.dominio.service.ClienteService;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -22,6 +24,15 @@ public class ClienteResource {
     @RolesAllowed({"ADMIN", "OPERATOR"})
     public List<ClienteResponse> lista() {
         return service.listaTutti().stream().map(ClienteResponse::da).toList();
+    }
+
+    // Tabella paginata della home. E' un POST perche' i filtri stanno nel body:
+    // sono troppi per metterli nell'indirizzo. Body vuoto = prima pagina senza filtri.
+    @POST
+    @Path("/ricerca")
+    @RolesAllowed({"ADMIN", "OPERATOR"})
+    public PaginaResponse<ClienteResponse> ricerca(ClienteRicercaRequest req) {
+        return service.cerca(req != null ? req : new ClienteRicercaRequest());
     }
 
     @GET

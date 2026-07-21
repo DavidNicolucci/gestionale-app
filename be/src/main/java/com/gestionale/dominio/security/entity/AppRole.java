@@ -8,8 +8,8 @@ import jakarta.persistence.*;
 @Table(name = "app_user_role")
 public class AppRole extends PanacheEntityBase {
 
-    // La tabella ha PK composta (user_id, role_name). Per semplicità di mapping
-    // usiamo role_name come campo dei ruoli letto da security-jpa.
+    // Nel database la chiave e' la coppia (user_id, role_name), ma mapparla cosi'
+    // e' piu' semplice e a noi basta leggere il nome del ruolo.
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,6 +19,6 @@ public class AppRole extends PanacheEntityBase {
     public Long userId;
 
     @Column(name = "role_name", nullable = false)
-    @RolesValue                       // security-jpa: il valore del ruolo (es. "ADMIN")
+    @RolesValue                       // il nome del ruolo, es. "ADMIN"
     public String roleName;
 }

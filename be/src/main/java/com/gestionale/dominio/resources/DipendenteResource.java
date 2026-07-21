@@ -2,6 +2,8 @@ package com.gestionale.dominio.resources;
 
 import com.gestionale.dominio.model.dto.DipendenteRequest;
 import com.gestionale.dominio.model.dto.DipendenteResponse;
+import com.gestionale.dominio.model.dto.DipendenteRicercaRequest;
+import com.gestionale.dominio.model.dto.PaginaResponse;
 import com.gestionale.dominio.service.DipendenteService;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -16,12 +18,21 @@ import java.util.List;
 public class DipendenteResource {
 
     @Inject
-    DipendenteService service;                 // package-private: ARC evita la reflection
+    DipendenteService service;
 
     @GET
-    @RolesAllowed({"ADMIN", "OPERATOR"})       // entrambi i ruoli possono leggere
+    @RolesAllowed({"ADMIN", "OPERATOR"})       // leggono entrambi i ruoli
     public List<DipendenteResponse> lista() {
         return service.listaTutti();
+    }
+
+    // Tabella paginata della home. E' un POST perche' i filtri stanno nel body:
+    // sono troppi per metterli nell'indirizzo.
+    @POST
+    @Path("/ricerca")
+    @RolesAllowed({"ADMIN", "OPERATOR"})
+    public PaginaResponse<DipendenteResponse> ricerca(DipendenteRicercaRequest req) {
+        return service.cerca(req != null ? req : new DipendenteRicercaRequest());
     }
 
     @GET
@@ -32,7 +43,7 @@ public class DipendenteResource {
     }
 
     @POST
-    @RolesAllowed("ADMIN")                      // solo ADMIN può creare
+    @RolesAllowed("ADMIN")                      // crea solo l'ADMIN
     public DipendenteResponse crea(@Valid DipendenteRequest req) {
         return service.crea(req);
     }
@@ -46,7 +57,7 @@ public class DipendenteResource {
 
     @DELETE
     @Path("/{id}")
-    @RolesAllowed("ADMIN")                      // solo ADMIN può eliminare
+    @RolesAllowed("ADMIN")                      // cancella solo l'ADMIN
     public void elimina(@PathParam("id") Long id) {
         service.elimina(id);
     }

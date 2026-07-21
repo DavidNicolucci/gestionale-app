@@ -10,17 +10,11 @@ import org.jboss.logging.Logger;
 import java.util.UUID;
 
 /**
- * Rete di sicurezza: intercetta TUTTO cio' che non e' gestito da un mapper piu' specifico.
+ * Rete di sicurezza: prende tutti gli errori che nessun altro handler gestisce,
+ * cosi' non esce mai una pagina di errore grezza verso il client.
  *
- * Copre sia le unchecked (NullPointerException, IllegalArgumentException...) sia le
- * checked (IOException dall'upload, JsonProcessingException dal consumer): a livello
- * JAX-RS la distinzione non esiste piu', qualunque Throwable esca da una risorsa
- * finisce qui.
- *
- * REGOLA JAX-RS: quando piu' mapper sono applicabili vince SEMPRE il piu' specifico.
- * Questo <Throwable> quindi non "ruba" le eccezioni gestite dagli altri mapper, ne'
- * quelle di sicurezza (io.quarkus.security.UnauthorizedException / ForbiddenException),
- * per cui Quarkus registra i propri mapper -> i 401 e i 403 restano intatti.
+ * Non ruba il lavoro agli altri handler: quando ce n'e' uno piu' preciso vince quello.
+ * Anche i 401 e i 403 restano gestiti da Quarkus.
  */
 @Provider
 public class ThrowableMapper implements ExceptionMapper<Throwable> {
@@ -35,10 +29,8 @@ public class ThrowableMapper implements ExceptionMapper<Throwable> {
 
         String path = uriInfo != null ? uriInfo.getPath() : null;
 
-        // --- Caso 1: vincolo violato sul DATABASE (es. UNIQUE sul codice fiscale) ---
-        // Non e' un guasto: e' il DB che rifiuta un dato incoerente, quindi 409 e non 500.
-        // La eccezione arriva incapsulata (PersistenceException -> RollbackException -> ...),
-        // percio' risaliamo la catena delle cause invece di mappare una classe sola.
+        // Caso 1: il database ha rifiutato il dato (es. codice fiscale gia' presente).
+        // Non e' un guasto nostro, quindi rispondiamo 409 e non 500.
         if (contieneVincoloDbViolato(exception)) {
             LOG.warnf("Vincolo di integrità violato su %s: %s", path, exception.getMessage());
             return Response.status(Response.Status.CONFLICT)
@@ -50,15 +42,15 @@ public class ThrowableMapper implements ExceptionMapper<Throwable> {
                     .build();
         }
 
-        // --- Caso 2: bug o guasto vero -> 500 ---
-        // Il traceId lega la risposta data all'utente allo stack trace nei log:
-        // l'utente segnala "errore a1b2c3", noi cerchiamo quella stringa e troviamo il caso.
+        // Caso 2: errore vero, rispondiamo 500.
+        // Il traceId collega la risposta all'errore nei log: l'utente ci dice
+        // "errore a1b2c3" e noi cerchiamo quel codice per trovare cosa e' successo.
         String traceId = UUID.randomUUID().toString().substring(0, 8);
         LOG.errorf(exception, "[%s] Errore non gestito su %s", traceId, path);
 
-        // Al client NON diciamo cosa e' andato storto: il messaggio di un'eccezione puo'
-        // contenere query SQL, percorsi del filesystem, nomi di tabelle. Sono informazioni
-        // che aiutano solo un attaccante. Il dettaglio resta nei log, associato al traceId.
+        // Al client non diciamo cosa e' andato storto: i messaggi di errore possono
+        // contenere query e percorsi dei file, informazioni utili solo a chi ci attacca.
+        // Il dettaglio resta nei log insieme al traceId.
         ErrorResponse body = new ErrorResponse(
                 Response.Status.INTERNAL_SERVER_ERROR.getStatusCode(),
                 "Internal Server Error",
@@ -69,13 +61,16 @@ public class ThrowableMapper implements ExceptionMapper<Throwable> {
         return Response.serverError().entity(body).build();
     }
 
-    /** Cerca in tutta la catena delle cause una violazione di vincolo del database. */
+    /**
+     * L'errore del database ci arriva dentro altri errori, uno dentro l'altro,
+     * quindi li scorriamo tutti fino in fondo per vedere se c'e'.
+     */
     private boolean contieneVincoloDbViolato(Throwable e) {
         while (e != null) {
             if (e instanceof org.hibernate.exception.ConstraintViolationException) {
                 return true;
             }
-            if (e == e.getCause()) {       // catena auto-referenziante: evita il ciclo infinito
+            if (e == e.getCause()) {       // se punta a se stesso, evitiamo il ciclo infinito
                 break;
             }
             e = e.getCause();

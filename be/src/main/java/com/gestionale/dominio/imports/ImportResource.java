@@ -25,15 +25,15 @@ public class ImportResource {
     String uploadDir;
 
     @Inject
-    @Channel("import-out")                 // il canale in uscita configurato in properties
-    Emitter<String> emitter;               // l'Emitter PUBBLICA messaggi sul canale
+    @Channel("import-out")                 // la coda configurata in application.properties
+    Emitter<String> emitter;               // serve a mettere i messaggi in coda
 
     @Inject
     ObjectMapper objectMapper;             // per trasformare l'oggetto in JSON
 
     @POST
     @Path("/timesheet")
-    @Consumes(MediaType.MULTIPART_FORM_DATA)   // riceve un file, non JSON
+    @Consumes(MediaType.MULTIPART_FORM_DATA)   // qui arriva un file, non del JSON
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"ADMIN", "OPERATOR"})
     public Response upload(@RestForm("file") FileUpload file) throws IOException {
@@ -42,17 +42,18 @@ public class ImportResource {
         java.nio.file.Path dir = Paths.get(uploadDir);
         Files.createDirectories(dir);
 
-        // 2. Salva il file con un nome univoco (evita collisioni se due upload hanno lo stesso nome)
+        // 2. Salva il file con un nome unico, cosi' due upload con lo stesso nome
+        //    non si sovrascrivono a vicenda
         String nomeUnivoco = UUID.randomUUID() + "_" + file.fileName();
         java.nio.file.Path destinazione = dir.resolve(nomeUnivoco);
         Files.copy(file.uploadedFile(), destinazione, StandardCopyOption.REPLACE_EXISTING);
 
-        // 3. Costruisce il messaggio leggero e lo pubblica sulla coda come JSON
+        // 3. Mette in coda solo il percorso del file, non il file intero
         ImportMessage msg = new ImportMessage(destinazione.toString(), file.fileName());
         String json = objectMapper.writeValueAsString(msg);
         emitter.send(json);
 
-        // 4. Risponde SUBITO: 202 Accepted = "preso in carico, elaboro in background"
+        // 4. Risponde subito senza aspettare: 202 vuol dire "ricevuto, ci lavoro dopo"
         return Response.accepted()
                 .entity("{\"messaggio\": \"File ricevuto, elaborazione in corso\"}")
                 .build();

@@ -2,8 +2,11 @@ package com.gestionale.dominio.service;
 
 import com.gestionale.dominio.model.dto.DipendenteRequest;
 import com.gestionale.dominio.model.dto.DipendenteResponse;
+import com.gestionale.dominio.model.dto.DipendenteRicercaRequest;
+import com.gestionale.dominio.model.dto.PaginaResponse;
 import com.gestionale.dominio.model.entity.Dipendente;
 import com.gestionale.dominio.repository.DipendenteRepository;
+import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -18,14 +21,12 @@ import io.quarkus.cache.CacheKey;
 @ApplicationScoped
 public class DipendenteService {
 
-    // I nomi delle cache stanno in costanti: un refuso tra @CacheResult e @CacheInvalidate
-    // non darebbe errore di compilazione, si tradurrebbe in dati stantii a runtime.
+    // I nomi delle cache in costanti: se li scrivessimo a mano, un errore di battitura
+    // non lo segnalerebbe il compilatore e ci ritroveremmo dati vecchi senza capire perche'.
     private static final String CACHE_LISTA = "dipendenti-lista";
     private static final String CACHE_SINGOLO = "dipendente-singolo";
 
-    // final + constructor injection: la dipendenza e' obbligatoria e immutabile.
-    // Con @Inject sul CAMPO non potrebbe essere final (viene valorizzato dopo la
-    // costruzione, via reflection) e la classe potrebbe esistere in uno stato incompleto.
+    // Repository passato nel costruttore e final: e' obbligatorio e non cambia mai.
     private final DipendenteRepository repository;
 
     @Inject
@@ -33,28 +34,41 @@ public class DipendenteService {
         this.repository = repository;
     }
 
-    // In cache finiscono i DTO, NON le entity: un'entity messa in cache viene restituita
-    // "detached" alle chiamate successive (persistence context ormai chiuso), e un eventuale
-    // campo LAZY esploderebbe con LazyInitializationException. Il DTO e' un oggetto inerte.
+    // In cache mettiamo i DTO e non le entity: un'entity tenuta da parte perde il
+    // collegamento col database e leggerne i campi collegati darebbe errore.
     @CacheResult(cacheName = CACHE_LISTA)
     public List<DipendenteResponse> listaTutti() {
-        return repository.listAll()      // metodo fornito da Panache
+        return repository.listAll()
                 .stream()
                 .map(DipendenteResponse::da)
                 .toList();
     }
 
-    @CacheResult(cacheName = CACHE_SINGOLO)   // chiave = id (unico parametro)
+    // Questa NON la mettiamo in cache: filtri e pagina cambiano a ogni chiamata, quindi
+    // la cache non servirebbe a niente e leggiamo sempre dati aggiornati.
+    public PaginaResponse<DipendenteResponse> cerca(DipendenteRicercaRequest req) {
+        PanacheQuery<Dipendente> query = repository
+                .cerca(req, req.sort())
+                .page(req.pagePanache());
+
+        List<DipendenteResponse> risultati = query.list().stream()
+                .map(DipendenteResponse::da)
+                .toList();
+
+        return PaginaResponse.di(risultati, query.pageCount(), req.pagina(), query.count());
+    }
+
+    @CacheResult(cacheName = CACHE_SINGOLO)   // la chiave della cache e' l'id
     public DipendenteResponse trovaPerId(Long id) {
         return DipendenteResponse.da(caricaEntity(id));
     }
 
-    @Transactional                                    // o tutto va a buon fine, o rollback
-    @CacheInvalidateAll(cacheName = CACHE_LISTA)      // la lista non e' piu' valida
+    @Transactional                                    // o va tutto a buon fine, o non cambia niente
+    @CacheInvalidateAll(cacheName = CACHE_LISTA)      // la lista in cache non va piu' bene
     public DipendenteResponse crea(DipendenteRequest req) {
-        // Regola di business: CF univoco. Controllo applicativo + vincolo DB come rete di
-        // sicurezza (fra il count e il persist un'altra transazione potrebbe inserire lo
-        // stesso CF: in quel caso scatta lo UNIQUE e il ThrowableMapper risponde 409).
+        // Il codice fiscale deve essere unico. Lo controlliamo qui, ma il vincolo c'e'
+        // anche sul database: se due richieste arrivano insieme il controllo puo' passare
+        // per entrambe, e allora blocca il database e rispondiamo 409.
         if (repository.count("codiceFiscale", req.codiceFiscale) > 0) {
             throw new WebApplicationException(
                     "Esiste già un dipendente con codice fiscale " + req.codiceFiscale, 409);
@@ -63,19 +77,21 @@ public class DipendenteService {
         Dipendente d = new Dipendente();
         copiaCampi(req, d);
 
-        repository.persist(d);           // INSERT
+        repository.persist(d);
         return DipendenteResponse.da(d);
     }
 
-    // @CacheKey su id: senza, la chiave sarebbe la coppia (id, req) e non combacerebbe mai
-    // con quella usata da trovaPerId(id) -> l'invalidazione non colpirebbe nulla.
+    // @CacheKey serve a dire che la chiave e' solo l'id: senza, sarebbe la coppia
+    // (id, req) e non troverebbe mai la voce salvata da trovaPerId, quindi non
+    // cancellerebbe niente dalla cache.
     @Transactional
     @CacheInvalidateAll(cacheName = CACHE_LISTA)      // la lista cambia
-    @CacheInvalidate(cacheName = CACHE_SINGOLO)       // e anche il singolo aggiornato
+    @CacheInvalidate(cacheName = CACHE_SINGOLO)       // e anche questo dipendente
     public DipendenteResponse aggiorna(@CacheKey Long id, DipendenteRequest req) {
-        Dipendente d = caricaEntity(id);  // entity managed (404 se non c'e')
+        Dipendente d = caricaEntity(id);  // 404 se non esiste
         copiaCampi(req, d);
-        // niente persist(): l'entity e' "managed", Hibernate fa l'UPDATE al commit (dirty checking)
+        // Niente persist: l'oggetto arriva dal database, Hibernate vede le modifiche
+        // e fa l'UPDATE da solo alla fine della transazione.
         return DipendenteResponse.da(d);
     }
 
@@ -89,11 +105,9 @@ public class DipendenteService {
         }
     }
 
-    // findByIdOptional + orElseThrow: nessun null circola nel codice, e il caso "non esiste"
-    // e' gestito in modo esplicito invece che con un if dimenticabile.
-    // NON annotato con @CacheResult: restituisce l'entity managed, che serve ad aggiorna()
-    // per il dirty checking. Chiamarlo da dentro la classe scavalcherebbe comunque
-    // l'interceptor CDI (self-invocation), quindi la cache non scatterebbe.
+    // Se non c'e' lancia il 404 subito, cosi' nessuno deve controllare il null.
+    // Qui la cache non la mettiamo: serve l'oggetto vero collegato al database,
+    // quello che permette ad aggiorna() di salvare le modifiche.
     private Dipendente caricaEntity(Long id) {
         return repository.findByIdOptional(id)
                 .orElseThrow(() -> new NotFoundException("Dipendente " + id + " non trovato"));

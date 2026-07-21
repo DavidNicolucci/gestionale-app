@@ -28,5 +28,5 @@ public class DipendenteRequest {
     @NotNull
     public LocalDate dataAssunzione;
 
-    public LocalDate dataScadenza;     // opzionale (indeterminato)
+    public LocalDate dataScadenza;     // vuota se il contratto e' a tempo indeterminato
 }

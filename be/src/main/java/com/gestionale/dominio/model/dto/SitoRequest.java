@@ -11,5 +11,5 @@ public class SitoRequest {
     public String indirizzo;     // opzionale
 
     @NotNull(message = "Il cliente di riferimento è obbligatorio")
-    public Long clienteId;       // riferimento al cliente per ID
+    public Long clienteId;       // a quale cliente appartiene il sito
 }

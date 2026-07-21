@@ -2,6 +2,8 @@ package com.gestionale.dominio.resources;
 
 import com.gestionale.dominio.model.dto.SitoRequest;
 import com.gestionale.dominio.model.dto.SitoResponse;
+import com.gestionale.dominio.model.dto.SitoRicercaRequest;
+import com.gestionale.dominio.model.dto.PaginaResponse;
 import com.gestionale.dominio.service.SitoService;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -22,6 +24,14 @@ public class SitoResource {
     @RolesAllowed({"ADMIN", "OPERATOR"})
     public List<SitoResponse> lista() {
         return service.listaTutti().stream().map(SitoResponse::da).toList();
+    }
+
+    // Tabella paginata della home. E' un POST perche' i filtri stanno nel body.
+    @POST
+    @Path("/ricerca")
+    @RolesAllowed({"ADMIN", "OPERATOR"})
+    public PaginaResponse<SitoResponse> ricerca(SitoRicercaRequest req) {
+        return service.cerca(req != null ? req : new SitoRicercaRequest());
     }
 
     @GET

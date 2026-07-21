@@ -7,23 +7,22 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Forma unica di tutte le risposte di errore dell'API.
- * Avere un solo contratto d'errore vuol dire che il frontend scrive UNA sola
- * funzione per gestirli, invece di indovinare il formato caso per caso.
+ * Formato unico per tutti gli errori dell'API: cosi' il frontend scrive una sola
+ * funzione per gestirli, invece di indovinare il formato ogni volta.
  */
-@JsonInclude(JsonInclude.Include.NON_NULL)   // i campi nulli non compaiono nel JSON
+@JsonInclude(JsonInclude.Include.NON_NULL)   // i campi vuoti non finiscono nel JSON
 public class ErrorResponse {
 
     public Instant timestamp = Instant.now();
     public int status;                        // 400, 404, 409, 500...
     public String error;                      // etichetta breve: "Bad Request", "Conflict"
     public String message;                    // messaggio leggibile
-    public String path;                       // endpoint che ha fallito
+    public String path;                       // endpoint che ha dato errore
 
-    /** Valorizzato solo per gli errori di validazione: campo -> messaggi. */
+    /** Solo per gli errori di validazione: per ogni campo, cosa non va. */
     public Map<String, List<String>> fieldErrors;
 
-    /** Valorizzato solo per i 500: identificativo con cui ritrovare lo stack trace nei log. */
+    /** Solo per i 500: il codice con cui ritrovare l'errore nei log. */
     public String traceId;
 
     public ErrorResponse(int status, String error, String message, String path) {

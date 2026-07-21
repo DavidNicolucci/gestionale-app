@@ -5,11 +5,11 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "dipendente")        // mappa esplicitamente sulla tabella creata in SQL
+@Table(name = "dipendente")
 public class Dipendente extends PanacheEntityBase {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)  // l'id lo genera SQL Server (IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)  // l'id lo assegna il database
     public Long id;
 
     @Column(name = "nome", nullable = false)
@@ -34,5 +34,5 @@ public class Dipendente extends PanacheEntityBase {
     public LocalDate dataAssunzione;
 
     @Column(name = "data_scadenza")
-    public LocalDate dataScadenza;     // nullable: contratto indeterminato
+    public LocalDate dataScadenza;     // vuota se il contratto e' a tempo indeterminato
 }
