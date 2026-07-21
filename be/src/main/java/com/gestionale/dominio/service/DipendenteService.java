@@ -23,8 +23,15 @@ public class DipendenteService {
     private static final String CACHE_LISTA = "dipendenti-lista";
     private static final String CACHE_SINGOLO = "dipendente-singolo";
 
+    // final + constructor injection: la dipendenza e' obbligatoria e immutabile.
+    // Con @Inject sul CAMPO non potrebbe essere final (viene valorizzato dopo la
+    // costruzione, via reflection) e la classe potrebbe esistere in uno stato incompleto.
+    private final DipendenteRepository repository;
+
     @Inject
-    DipendenteRepository repository;     // inject del repository (CDI)
+    public DipendenteService(DipendenteRepository repository) {
+        this.repository = repository;
+    }
 
     // In cache finiscono i DTO, NON le entity: un'entity messa in cache viene restituita
     // "detached" alle chiamate successive (persistence context ormai chiuso), e un eventuale
@@ -45,7 +52,9 @@ public class DipendenteService {
     @Transactional                                    // o tutto va a buon fine, o rollback
     @CacheInvalidateAll(cacheName = CACHE_LISTA)      // la lista non e' piu' valida
     public DipendenteResponse crea(DipendenteRequest req) {
-        // Regola di business: CF univoco. Controllo applicativo + vincolo DB come rete di sicurezza.
+        // Regola di business: CF univoco. Controllo applicativo + vincolo DB come rete di
+        // sicurezza (fra il count e il persist un'altra transazione potrebbe inserire lo
+        // stesso CF: in quel caso scatta lo UNIQUE e il ThrowableMapper risponde 409).
         if (repository.count("codiceFiscale", req.codiceFiscale) > 0) {
             throw new WebApplicationException(
                     "Esiste già un dipendente con codice fiscale " + req.codiceFiscale, 409);
@@ -80,15 +89,14 @@ public class DipendenteService {
         }
     }
 
-    // Lookup interno NON annotato con @CacheResult: restituisce l'entity managed, che serve
-    // ad aggiorna() per il dirty checking. Chiamarlo da dentro la classe scavalcherebbe
-    // comunque l'interceptor CDI (self-invocation), quindi la cache non scatterebbe.
+    // findByIdOptional + orElseThrow: nessun null circola nel codice, e il caso "non esiste"
+    // e' gestito in modo esplicito invece che con un if dimenticabile.
+    // NON annotato con @CacheResult: restituisce l'entity managed, che serve ad aggiorna()
+    // per il dirty checking. Chiamarlo da dentro la classe scavalcherebbe comunque
+    // l'interceptor CDI (self-invocation), quindi la cache non scatterebbe.
     private Dipendente caricaEntity(Long id) {
-        Dipendente d = repository.findById(id);
-        if (d == null) {
-            throw new NotFoundException("Dipendente " + id + " non trovato");
-        }
-        return d;
+        return repository.findByIdOptional(id)
+                .orElseThrow(() -> new NotFoundException("Dipendente " + id + " non trovato"));
     }
 
     private void copiaCampi(DipendenteRequest req, Dipendente d) {

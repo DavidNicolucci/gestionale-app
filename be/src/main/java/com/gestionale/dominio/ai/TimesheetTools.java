@@ -9,12 +9,19 @@ import jakarta.inject.Inject;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @ApplicationScoped
 public class TimesheetTools {
 
-    @Inject DipendenteRepository dipendenteRepo;
-    @Inject TimesheetRepository timesheetRepo;
+    private final DipendenteRepository dipendenteRepo;
+    private final TimesheetRepository timesheetRepo;
+
+    @Inject
+    public TimesheetTools(DipendenteRepository dipendenteRepo, TimesheetRepository timesheetRepo) {
+        this.dipendenteRepo = dipendenteRepo;
+        this.timesheetRepo = timesheetRepo;
+    }
 
     @Tool("Restituisce l'elenco di tutti i dipendenti registrati, con nome e cognome. " +
             "Usalo quando l'utente chiede chi sono i dipendenti o vuole conoscere i nominativi.")
@@ -29,32 +36,18 @@ public class TimesheetTools {
             "del periodo, entrambe nel formato AAAA-MM-GG. " +
             "Usalo quando l'utente chiede quante ore ha lavorato una persona in un certo periodo o mese.")
     public String oreLavorate(String nomeCompleto, LocalDate dataInizio, LocalDate dataFine) {
-        // Cerca il dipendente per nome+cognome (semplice match sul nominativo)
-        Dipendente dip = trovaDipendentePerNome(nomeCompleto);
-        if (dip == null) {
+        // La ricerca per nominativo la fa ora il DATABASE (repository.perNominativo):
+        // prima si caricavano TUTTI i dipendenti con listAll() per poi filtrarli in Java.
+        Optional<Dipendente> dip = dipendenteRepo.perNominativo(nomeCompleto);
+
+        if (dip.isEmpty()) {
+            // Messaggio in chiaro e non eccezione: e' il MODELLO a leggere questo testo,
+            // e il system prompt gli dice di ammettere quando un dato non c'e' invece di inventarlo.
             return "Nessun dipendente trovato con nome '" + nomeCompleto + "'.";
         }
 
-        BigDecimal totale = timesheetRepo.sommaOrePeriodo(dip.id, dataInizio, dataFine);
+        BigDecimal totale = timesheetRepo.sommaOrePeriodo(dip.get().id, dataInizio, dataFine);
         return String.format("%s ha lavorato %s ore tra il %s e il %s.",
                 nomeCompleto, totale, dataInizio, dataFine);
-    }
-
-    // Helper: cerca un dipendente per nome completo, solo nome o solo cognome.
-    // Il confronto è case-insensitive e ignora spazi superflui, così "Mario",
-    // "Rossi" o "Mario Rossi" trovano comunque il dipendente.
-    private Dipendente trovaDipendentePerNome(String nomeCompleto) {
-        String cercato = nomeCompleto.trim().toLowerCase();
-        return dipendenteRepo.listAll().stream()
-                .filter(d -> {
-                    String nome = d.nome.toLowerCase();
-                    String cognome = d.cognome.toLowerCase();
-                    String completo = (nome + " " + cognome);
-                    return completo.equals(cercato)
-                            || nome.equals(cercato)
-                            || cognome.equals(cercato);
-                })
-                .findFirst()
-                .orElse(null);
     }
 }

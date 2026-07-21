@@ -7,29 +7,33 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
+import org.jboss.logging.Logger;
+
 import java.util.List;
 
 @ApplicationScoped
 public class ClienteService {
 
+    private static final Logger LOG = Logger.getLogger(ClienteService.class);
+
+    private final ClienteRepository repository;
+
     @Inject
-    private ClienteRepository repository;
+    public ClienteService(ClienteRepository repository) {
+        this.repository = repository;
+    }
 
     public List<Cliente> listaTutti() {
         return repository.listAll();
     }
 
+    // findByIdOptional().orElseThrow(): il "non trovato" e' gestito dalla firma stessa,
+    // non c'e' nessun null da controllare e nessun NullPointerException possibile.
     public Cliente trovaPerId(Long id) {
-        //final e Optional
-        Cliente c = repository.findById(id);
-        if (c == null) {
-            throw new NotFoundException("Cliente " + id + " non trovato");
-        }
-
-        return c;
+        return repository.findByIdOptional(id)
+                .orElseThrow(() -> new NotFoundException("Cliente " + id + " non trovato"));
     }
 
-    //mettere i log info
     @Transactional
     public Cliente crea(ClienteRequest req) {
         Cliente c = new Cliente();
@@ -37,6 +41,7 @@ public class ClienteService {
         c.partitaIva = req.partitaIva;
         c.indirizzo = req.indirizzo;
         repository.persist(c);
+        LOG.infof("Cliente creato: id=%d, ragioneSociale=%s", c.id, c.ragioneSociale);
         return c;
     }
 
@@ -46,6 +51,7 @@ public class ClienteService {
         c.ragioneSociale = req.ragioneSociale;
         c.partitaIva = req.partitaIva;
         c.indirizzo = req.indirizzo;
+        LOG.infof("Cliente aggiornato: id=%d", id);
         return c;   // dirty checking: l'UPDATE parte al commit
     }
 
@@ -55,5 +61,8 @@ public class ClienteService {
         if (!rimosso) {
             throw new NotFoundException("Cliente " + id + " non trovato");
         }
+        // ATTENZIONE: sito ha ON DELETE CASCADE sulla FK cliente_id -> eliminando un
+        // cliente spariscono anche tutti i suoi siti.
+        LOG.infof("Cliente eliminato: id=%d (con i siti collegati, per il CASCADE)", id);
     }
 }

@@ -6,6 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @ApplicationScoped
 public class TimesheetRepository implements PanacheRepository<Timesheet> {
@@ -19,9 +20,10 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
     }
 
     // Stesso motivo del metodo sopra, sul singolo: evita le 2 query extra sui proxy.
-    public Timesheet perIdConRelazioni(Long id) {
+    // Optional perche' l'id potrebbe non esistere: sta al service tradurlo in 404.
+    public Optional<Timesheet> perIdConRelazioni(Long id) {
         return find("SELECT t FROM Timesheet t JOIN FETCH t.dipendente JOIN FETCH t.sito WHERE t.id = ?1", id)
-                .firstResult();
+                .firstResultOptional();
     }
 
     // Somma le ore di un dipendente in un intervallo di date.

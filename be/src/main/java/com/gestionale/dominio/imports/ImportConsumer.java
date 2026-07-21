@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.util.Optional;
 
 @ApplicationScoped
 public class ImportConsumer {
@@ -61,11 +62,13 @@ public class ImportConsumer {
                         LocalDate data  = getData(row.getCell(2));
                         BigDecimal ore  = getNumero(row.getCell(3));
 
-                        // Lookup: il dipendente e il sito devono esistere
-                        Dipendente dip = dipendenteRepo.perCodiceFiscale(cf);
-                        Sito sito = sitoRepo.perNome(nomeSito);
+                        // Lookup: il dipendente e il sito devono esistere.
+                        // Optional dai repository -> niente null check, ma il caso "assente"
+                        // resta un errore di DATO (riga saltata), non di infrastruttura.
+                        Optional<Dipendente> dip = dipendenteRepo.perCodiceFiscale(cf);
+                        Optional<Sito> sito = sitoRepo.perNome(nomeSito);
 
-                        if (dip == null || sito == null) {
+                        if (dip.isEmpty() || sito.isEmpty()) {
                             LOG.warnf("Riga %d ignorata: dipendente o sito non trovato (cf=%s, sito=%s)",
                                     i, cf, nomeSito);
                             righeErrore++;
@@ -73,8 +76,8 @@ public class ImportConsumer {
                         }
 
                         Timesheet ts = new Timesheet();
-                        ts.dipendente = dip;
-                        ts.sito = sito;
+                        ts.dipendente = dip.get();
+                        ts.sito = sito.get();
                         ts.dataLavoro = data;
                         ts.oreLavorate = ore;
                         timesheetRepo.persist(ts);

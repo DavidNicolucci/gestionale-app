@@ -4,10 +4,12 @@ import com.gestionale.dominio.security.entity.AppUser;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -23,24 +25,31 @@ public class AuthService {
     private static final String HASH_CIVETTA =
             "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
-    @ConfigProperty(name = "mp.jwt.verify.issuer")
-    String issuer;                       // riusa l'issuer configurato in properties
+    private final String issuer;      // final: letto una volta alla costruzione, mai piu' modificato
+
+    @Inject
+    public AuthService(@ConfigProperty(name = "mp.jwt.verify.issuer") String issuer) {
+        this.issuer = issuer;
+    }
 
     public String autentica(String username, String password) {
-        // 1. Cerca l'utente per username
-        AppUser user = AppUser.find("username", username).firstResult();
+        // 1. Cerca l'utente. Optional invece di null: il "non esiste" e' nella firma.
+        Optional<AppUser> utente = AppUser.find("username", username).firstResultOptional();
 
-        // 2. Verifica la password. Il confronto gira anche quando l'utente non esiste
-        //    (vedi HASH_CIVETTA): il costo in tempo deve essere lo stesso nei due casi.
-        String hashDaVerificare = (user != null) ? user.password : HASH_CIVETTA;
+        // 2. Verifica la password. Il confronto gira SEMPRE, anche quando l'utente non
+        //    esiste (vedi HASH_CIVETTA): il costo in tempo dev'essere lo stesso nei due casi.
+        //    Da qui l'uso di map(...).orElse(...) e non di un ifPresent: serve valutare
+        //    comunque il bcrypt.
+        String hashDaVerificare = utente.map(u -> u.password).orElse(HASH_CIVETTA);
         boolean passwordCorretta = BcryptUtil.matches(password, hashDaVerificare);
 
         // 3. Un'unica risposta per tutti i motivi di fallimento: utente inesistente,
         //    password errata o account disabilitato. Distinguerli nel messaggio direbbe
         //    a un attaccante quali username esistono.
-        if (user == null || !passwordCorretta || !user.enabled) {
-            throw new WebApplicationException("Credenziali non valide", 401);
-        }
+        AppUser user = utente
+                .filter(u -> passwordCorretta)
+                .filter(u -> u.enabled)
+                .orElseThrow(() -> new WebApplicationException("Credenziali non valide", 401));
 
         // 4. Raccoglie i ruoli dell'utente (dalla tabella app_user_role tramite la relazione)
         Set<String> ruoli = user.roles.stream()

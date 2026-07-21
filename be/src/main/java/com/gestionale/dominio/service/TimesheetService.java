@@ -11,14 +11,27 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
+import org.jboss.logging.Logger;
+
 import java.util.List;
 
 @ApplicationScoped
 public class TimesheetService {
 
-    @Inject TimesheetRepository repository;
-    @Inject DipendenteRepository dipendenteRepository;
-    @Inject SitoRepository sitoRepository;
+    private static final Logger LOG = Logger.getLogger(TimesheetService.class);
+
+    private final TimesheetRepository repository;
+    private final DipendenteRepository dipendenteRepository;
+    private final SitoRepository sitoRepository;
+
+    @Inject
+    public TimesheetService(TimesheetRepository repository,
+                            DipendenteRepository dipendenteRepository,
+                            SitoRepository sitoRepository) {
+        this.repository = repository;
+        this.dipendenteRepository = dipendenteRepository;
+        this.sitoRepository = sitoRepository;
+    }
 
     // Non listAll(): il DTO legge dipendente e sito, che sono LAZY. Senza la fetch join
     // ogni riga scatenerebbe 2 query aggiuntive (N+1).
@@ -27,11 +40,8 @@ public class TimesheetService {
     }
 
     public Timesheet trovaPerId(Long id) {
-        Timesheet t = repository.perIdConRelazioni(id);
-        if (t == null) {
-            throw new NotFoundException("Timesheet " + id + " non trovato");
-        }
-        return t;
+        return repository.perIdConRelazioni(id)
+                .orElseThrow(() -> new NotFoundException("Timesheet " + id + " non trovato"));
     }
 
     @Transactional
@@ -39,6 +49,8 @@ public class TimesheetService {
         Timesheet t = new Timesheet();
         applica(t, req);            // logica di mapping condivisa (vedi sotto)
         repository.persist(t);
+        LOG.infof("Timesheet creato: id=%d, dipendenteId=%d, data=%s, ore=%s",
+                t.id, req.dipendenteId, req.dataLavoro, req.oreLavorate);
         return t;
     }
 
@@ -46,6 +58,7 @@ public class TimesheetService {
     public Timesheet aggiorna(Long id, TimesheetRequest req) {
         Timesheet t = trovaPerId(id);
         applica(t, req);
+        LOG.infof("Timesheet aggiornato: id=%d", id);
         return t;                   // dirty checking: UPDATE al commit
     }
 
@@ -55,19 +68,17 @@ public class TimesheetService {
         if (!rimosso) {
             throw new NotFoundException("Timesheet " + id + " non trovato");
         }
+        LOG.infof("Timesheet eliminato: id=%d", id);
     }
 
     // Metodo privato condiviso tra crea e aggiorna: risolve le relazioni e valorizza i campi.
     // Evita di duplicare la stessa logica in due punti (principio DRY).
     private void applica(Timesheet t, TimesheetRequest req) {
-        Dipendente dip = dipendenteRepository.findById(req.dipendenteId);
-        if (dip == null) {
-            throw new NotFoundException("Dipendente " + req.dipendenteId + " non trovato");
-        }
-        Sito sito = sitoRepository.findById(req.sitoId);
-        if (sito == null) {
-            throw new NotFoundException("Sito " + req.sitoId + " non trovato");
-        }
+        Dipendente dip = dipendenteRepository.findByIdOptional(req.dipendenteId)
+                .orElseThrow(() -> new NotFoundException("Dipendente " + req.dipendenteId + " non trovato"));
+        Sito sito = sitoRepository.findByIdOptional(req.sitoId)
+                .orElseThrow(() -> new NotFoundException("Sito " + req.sitoId + " non trovato"));
+
         t.dipendente = dip;
         t.sito = sito;
         t.dataLavoro = req.dataLavoro;
