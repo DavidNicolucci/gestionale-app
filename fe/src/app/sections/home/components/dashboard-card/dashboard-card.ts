@@ -1,17 +1,12 @@
 import {ChangeDetectionStrategy, Component, input} from '@angular/core';
 import {DashboardCardInterface} from '../../interfaces/dashboard-card.interface';
-import {MatCard, MatCardContent, MatCardHeader, MatCardTitle} from '@angular/material/card';
 import {MatIcon} from '@angular/material/icon';
 import {RouterLink} from '@angular/router';
 
 @Component({
   selector: 'app-dashboard-card',
   imports: [
-    MatCard,
-    MatCardHeader,
     MatIcon,
-    MatCardTitle,
-    MatCardContent,
     RouterLink
   ],
   standalone: true,

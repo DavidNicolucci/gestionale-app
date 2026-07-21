@@ -19,3 +19,11 @@ export enum DashboardCardIcon {
   SITI = 'location_on',
   TIMESHEET = 'schedule',
 }
+
+/** Colore d'accento della card, iniettato nella custom property `--card-accent`. */
+export enum DashboardCardColor {
+  CLIENTI = '#6366f1',
+  DIPENDENTI = '#10b981',
+  SITI = '#f59e0b',
+  TIMESHEET = '#0ea5e9',
+}

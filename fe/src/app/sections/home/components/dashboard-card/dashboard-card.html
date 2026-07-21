@@ -1,9 +1,16 @@
-<mat-card class="dashboard-card" [routerLink]="['/', card().route]">
-  <mat-card-header>
-    <mat-icon mat-card-avatar>{{ card().icona }}</mat-icon>
-    <mat-card-title>{{ card().titolo }}</mat-card-title>
-  </mat-card-header>
-  <mat-card-content>
-    <p>{{ card().descrizione }}</p>
-  </mat-card-content>
-</mat-card>
+<a
+  class="dashboard-card"
+  [style.--card-accent]="card().colore"
+  [routerLink]="['/', card().route]"
+>
+  <span class="icon-tile">
+    <mat-icon>{{ card().icona }}</mat-icon>
+  </span>
+
+  <span class="text">
+    <span class="titolo">{{ card().titolo }}</span>
+    <span class="descrizione">{{ card().descrizione }}</span>
+  </span>
+
+  <mat-icon class="chevron">chevron_right</mat-icon>
+</a>

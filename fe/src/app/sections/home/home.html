@@ -11,16 +11,11 @@
 
 <main class="content">
   <h1>Benvenuto, {{ getUsername() }}</h1>
-  <p>Sei autenticato. Da qui costruiremo le sezioni del gestionale.</p>
-</main>
+  <p>Sei autenticato.</p>
 
-
-<div class="container-fluid mt-3">
-  <div class="row g-3">
+  <div class="cards">
     @for (card of cards(); track card.route) {
-      <div class="col-12 col-sm-6 col-lg-3">
-        <app-dashboard-card [card]="card" />
-      </div>
+      <app-dashboard-card [card]="card" />
     }
   </div>
-</div>
+</main>
