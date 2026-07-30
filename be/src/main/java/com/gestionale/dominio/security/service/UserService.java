@@ -12,6 +12,7 @@ import jakarta.ws.rs.WebApplicationException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class UserService {
@@ -57,5 +58,31 @@ public class UserService {
 
         // 5. Restituisce i dati dell'utente creato, senza la password.
         return new UserResponse(nuovo.id, nuovo.username, nuovo.enabled, ruoliSalvati);
+    }
+
+    // Elenca tutti gli utenti con i loro ruoli. Sola lettura: niente @Transactional
+    // di scrittura, ma serve comunque una transazione per leggere la collection
+    // "roles" (lazy) senza incappare in LazyInitializationException.
+    @Transactional
+    public List<UserResponse> listaUtenti() {
+        List<AppUser> utenti = AppUser.listAll();
+        return utenti.stream()
+                .map(u -> new UserResponse(
+                        u.id,
+                        u.username,
+                        u.enabled,
+                        u.roles.stream().map(r -> r.roleName).collect(Collectors.toList())))
+                .collect(Collectors.toList());
+    }
+
+    // Imposta una nuova password per un utente esistente. Anche qui la password
+    // viene cifrata (hash bcrypt): nel DB non finisce mai in chiaro.
+    @Transactional
+    public void cambiaPassword(Long userId, String nuovaPassword) {
+        AppUser utente = AppUser.<AppUser>findByIdOptional(userId)
+                .orElseThrow(() -> new WebApplicationException("Utente non trovato", 404));
+        utente.password = BcryptUtil.bcryptHash(nuovaPassword);
+        // Essendo un'entita' gestita dentro la transazione, la modifica viene
+        // salvata in automatico al commit: non serve chiamare persist().
     }
 }
