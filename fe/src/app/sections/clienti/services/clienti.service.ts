@@ -1,6 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { map, Observable } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { plainToInstance } from 'class-transformer';
 import { ClienteModel } from '../interfaces/cliente.model';
 import { ClienteRicercaRequestModel } from '../interfaces/cliente-ricerca-request.model';
@@ -14,14 +14,16 @@ export class ClientiService {
    * Ricerca paginata dei clienti. È una POST perché i filtri stanno nel body:
    * body vuoto = prima pagina senza filtri.
    */
-  cerca(filtri: ClienteRicercaRequestModel = {}): Observable<PaginaResponseModel<ClienteModel>> {
-    return this.http
-      .post<PaginaResponseModel<ClienteModel>>('/api/clienti/ricerca', filtri)
-      .pipe(
-        map((pagina) => ({
-          ...pagina,
-          risultati: plainToInstance(ClienteModel, pagina.risultati ?? []),
-        })),
-      );
+  async cerca(
+    filtri: ClienteRicercaRequestModel = {},
+  ): Promise<PaginaResponseModel<ClienteModel>> {
+    const pagina = await firstValueFrom(
+      this.http.post<PaginaResponseModel<ClienteModel>>('/api/clienti/ricerca', filtri),
+    );
+
+    return {
+      ...pagina,
+      risultati: plainToInstance(ClienteModel, pagina.risultati ?? []),
+    };
   }
 }

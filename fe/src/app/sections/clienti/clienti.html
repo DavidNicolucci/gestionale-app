@@ -17,11 +17,16 @@
   }
 
   <!-- Elenco provvisorio: al suo posto andrà la tabella dei clienti. -->
-  <ul class="risultati">
-    @for (cliente of clienti(); track cliente.id) {
-      <li>{{ cliente.ragioneSociale }} — {{ cliente.partitaIva }}</li>
-    } @empty {
-      <li class="vuoto">Nessun cliente trovato</li>
-    }
-  </ul>
+  @if (haRicerca()) {
+    <ul class="risultati">
+      @for (cliente of clienti(); track cliente.id) {
+        <li>{{ cliente.ragioneSociale }} — {{ cliente.partitaIva }}</li>
+      } @empty {
+        <!-- Durante la ricerca l'elenco è ancora vuoto: non è un "nessun risultato". -->
+        @if (!loading()) {
+          <li class="vuoto">Nessun cliente trovato</li>
+        }
+      }
+    </ul>
+  }
 </div>
