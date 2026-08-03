@@ -7,23 +7,16 @@ import { ClienteRicercaRequestModel } from '../interfaces/cliente-ricerca-reques
 import { PaginaResponseModel } from '../../../shared/interfaces/pagina-response.model';
 
 @Injectable({ providedIn: 'root' })
-export class ClientiService {
+export class ClientApiiService {
   private readonly http = inject(HttpClient);
 
   /**
    * Ricerca paginata dei clienti. È una POST perché i filtri stanno nel body:
    * body vuoto = prima pagina senza filtri.
    */
-  async cerca(
-    filtri: ClienteRicercaRequestModel = {},
-  ): Promise<PaginaResponseModel<ClienteModel>> {
-    const pagina = await firstValueFrom(
-      this.http.post<PaginaResponseModel<ClienteModel>>('/api/clienti/ricerca', filtri),
-    );
-
-    return {
-      ...pagina,
-      risultati: plainToInstance(ClienteModel, pagina.risultati ?? []),
-    };
+  async cerca(filtri: ClienteRicercaRequestModel): Promise<PaginaResponseModel<ClienteModel>> {
+    const post$= this.http.post<PaginaResponseModel<ClienteModel>>('/api/clienti/ricerca', filtri)
+    const response = await firstValueFrom(post$);
+    return {...response, risultati: plainToInstance(ClienteModel, response.risultati ?? [])};
   }
 }

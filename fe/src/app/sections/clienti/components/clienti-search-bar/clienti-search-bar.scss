@@ -6,3 +6,16 @@
   width: 100%;
   max-width: 420px;
 }
+
+/* I due filtri stanno sulla stessa riga finché c'è spazio, poi vanno a capo. */
+.filtri {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.75rem;
+
+  .filtro {
+    flex: 1 1 200px;
+    max-width: 260px;
+  }
+}

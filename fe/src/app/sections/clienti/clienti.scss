@@ -14,22 +14,6 @@
   color: var(--mat-sys-error);
 }
 
-.risultati {
-  margin: 1.5rem 0 0;
-  padding: 0;
-  list-style: none;
-
-  li {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  }
-
-  .vuoto {
-    color: var(--mat-sys-on-surface-variant);
-    border-bottom: none;
-  }
-}
-
 /* Allineata a sinistra sopra al contenuto della pagina. */
 .indietro {
   margin-bottom: 1.5rem;

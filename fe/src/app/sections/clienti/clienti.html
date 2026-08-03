@@ -7,26 +7,16 @@
   <h1 class="mb -5">Clienti</h1>
 
   <app-clienti-search-bar
-    [termine]="termine()"
+    [filtri]="filtri()"
+    [opzioniRagioneSociale]="opzioniRagioneSociale()"
+    [opzioniPartitaIva]="opzioniPartitaIva()"
     [loading]="loading()"
-    (ricerca)="onRicerca($event)"
+    (filtriChange)="onFiltri($event)"
   />
 
   @if (errorMessage()) {
     <p class="errore">{{ errorMessage() }}</p>
   }
 
-  <!-- Elenco provvisorio: al suo posto andrà la tabella dei clienti. -->
-  @if (haRicerca()) {
-    <ul class="risultati">
-      @for (cliente of clienti(); track cliente.id) {
-        <li>{{ cliente.ragioneSociale }} — {{ cliente.partitaIva }}</li>
-      } @empty {
-        <!-- Durante la ricerca l'elenco è ancora vuoto: non è un "nessun risultato". -->
-        @if (!loading()) {
-          <li class="vuoto">Nessun cliente trovato</li>
-        }
-      }
-    </ul>
-  }
+  <!-- I clienti trovati per ora si vedono solo nelle tendine dei campi di ricerca. -->
 </div>

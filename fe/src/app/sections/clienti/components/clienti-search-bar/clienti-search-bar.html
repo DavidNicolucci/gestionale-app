@@ -1,4 +1,4 @@
-<mat-form-field class="campo" appearance="outline" subscriptSizing="dynamic">
+<mat-form-field class="campo mb-3" appearance="outline" subscriptSizing="dynamic">
   <mat-label>Cerca cliente</mat-label>
 
   <mat-icon matPrefix>search</mat-icon>
@@ -8,15 +8,68 @@
     type="search"
     autocomplete="off"
     placeholder="Ragione sociale"
-    [value]="termine()"
-    (input)="onInput($event)"
+    [value]="filtri().termine"
+    [matAutocomplete]="tendinaTermine"
+    (input)="onCampo('termine', $event)"
   />
+
+  <mat-autocomplete
+    #tendinaTermine="matAutocomplete"
+    (optionSelected)="onOpzione('termine', $event.option.value)"
+  >
+    @for (opzione of opzioniRagioneSociale(); track opzione) {
+      <mat-option [value]="opzione">{{ opzione }}</mat-option>
+    }
+  </mat-autocomplete>
 
   @if (loading()) {
     <mat-spinner matSuffix diameter="20" />
-  } @else if (termine()) {
+  } @else if (filtri().termine) {
     <button matSuffix mat-icon-button type="button" aria-label="Pulisci ricerca" (click)="onPulisci()">
       <mat-icon>close</mat-icon>
     </button>
   }
 </mat-form-field>
+
+<div class="filtri">
+  <mat-form-field class="filtro" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Ragione sociale</mat-label>
+    <input
+      matInput
+      type="text"
+      autocomplete="off"
+      [value]="filtri().ragioneSociale"
+      [matAutocomplete]="tendinaRagioneSociale"
+      (input)="onCampo('ragioneSociale', $event)"
+    />
+    <mat-autocomplete
+      #tendinaRagioneSociale="matAutocomplete"
+      (optionSelected)="onOpzione('ragioneSociale', $event.option.value)"
+    >
+      @for (opzione of opzioniRagioneSociale(); track opzione) {
+        <mat-option [value]="opzione">{{ opzione }}</mat-option>
+      }
+    </mat-autocomplete>
+  </mat-form-field>
+
+  <mat-form-field class="filtro" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Partita IVA</mat-label>
+    <input
+      matInput
+      type="text"
+      autocomplete="off"
+      inputmode="numeric"
+      [value]="filtri().partitaIva"
+      [matAutocomplete]="tendinaPartitaIva"
+      (input)="onCampo('partitaIva', $event)"
+    />
+    <mat-autocomplete
+      #tendinaPartitaIva="matAutocomplete"
+      (optionSelected)="onOpzione('partitaIva', $event.option.value)"
+    >
+      @for (opzione of opzioniPartitaIva(); track opzione) {
+        <mat-option [value]="opzione">{{ opzione }}</mat-option>
+      }
+    </mat-autocomplete>
+  </mat-form-field>
+</div>
