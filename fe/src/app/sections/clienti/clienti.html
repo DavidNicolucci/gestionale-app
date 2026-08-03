@@ -1,0 +1,27 @@
+<div class="page mb-8">
+  <button class="indietro" mat-button type="button" (click)="onIndietro()">
+    <mat-icon>arrow_back</mat-icon>
+    Indietro
+  </button>
+
+  <h1 class="mb -5">Clienti</h1>
+
+  <app-clienti-search-bar
+    [termine]="termine()"
+    [loading]="loading()"
+    (ricerca)="onRicerca($event)"
+  />
+
+  @if (errorMessage()) {
+    <p class="errore">{{ errorMessage() }}</p>
+  }
+
+  <!-- Elenco provvisorio: al suo posto andrà la tabella dei clienti. -->
+  <ul class="risultati">
+    @for (cliente of clienti(); track cliente.id) {
+      <li>{{ cliente.ragioneSociale }} — {{ cliente.partitaIva }}</li>
+    } @empty {
+      <li class="vuoto">Nessun cliente trovato</li>
+    }
+  </ul>
+</div>

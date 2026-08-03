@@ -10,6 +10,11 @@ export const routes: Routes = [
     loadComponent: () => import('./sections/home/home').then((m) => m.Home),
   },
   {
+    path: AppRoute.CLIENTI,
+    canActivate: [authGuard],
+    loadChildren: () => import('./sections/clienti/routes').then((m) => m.clientiRoutes),
+  },
+  {
     path: AppRoute.LOGIN,
     canActivate: [guestGuard],
     loadComponent: () => import('./sections/login/login').then((m) => m.Login),

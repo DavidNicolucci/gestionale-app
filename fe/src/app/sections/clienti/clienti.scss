@@ -1,0 +1,43 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+  background-color: #f4f5f7;
+}
+
+
+.page {
+  padding: 4rem;
+}
+
+.errore {
+  margin: 0.5rem 0 0;
+  color: var(--mat-sys-error);
+}
+
+.risultati {
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .vuoto {
+    color: var(--mat-sys-on-surface-variant);
+    border-bottom: none;
+  }
+}
+
+/* Allineata a sinistra sopra al contenuto della pagina. */
+.indietro {
+  margin-bottom: 1.5rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 1rem;
+  }
+}

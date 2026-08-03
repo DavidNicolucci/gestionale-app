@@ -1,0 +1,22 @@
+<mat-form-field class="campo" appearance="outline" subscriptSizing="dynamic">
+  <mat-label>Cerca cliente</mat-label>
+
+  <mat-icon matPrefix>search</mat-icon>
+
+  <input
+    matInput
+    type="search"
+    autocomplete="off"
+    placeholder="Ragione sociale"
+    [value]="termine()"
+    (input)="onInput($event)"
+  />
+
+  @if (loading()) {
+    <mat-spinner matSuffix diameter="20" />
+  } @else if (termine()) {
+    <button matSuffix mat-icon-button type="button" aria-label="Pulisci ricerca" (click)="onPulisci()">
+      <mat-icon>close</mat-icon>
+    </button>
+  }
+</mat-form-field>
