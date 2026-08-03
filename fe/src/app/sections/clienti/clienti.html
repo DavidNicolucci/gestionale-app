@@ -10,13 +10,30 @@
     [filtri]="filtri()"
     [opzioniRagioneSociale]="opzioniRagioneSociale()"
     [opzioniPartitaIva]="opzioniPartitaIva()"
-    [loading]="loading()"
     (filtriChange)="onFiltri($event)"
+    (applica)="onApplica()"
+    (rimuovi)="onRimuovi()"
   />
 
   @if (errorMessage()) {
     <p class="errore">{{ errorMessage() }}</p>
   }
 
-  <!-- I clienti trovati per ora si vedono solo nelle tendine dei campi di ricerca. -->
+  <!-- Mentre si digita i risultati stanno solo nelle tendine: la tabella
+       compare al click su "Applica filtri". -->
+  @if (tabellaVisibile()) {
+    <app-clienti-tabella
+      class="tabella"
+      [clienti]="clientiTabella()"
+      [loading]="loadingTabella()"
+    />
+  }
 </div>
+
+<!-- Spinner unico della pagina: vale sia per la ricerca delle tendine sia per
+     quella della tabella. Non intercetta i click, così si può continuare a scrivere. -->
+@if (inCaricamento()) {
+  <div class="caricamento">
+    <mat-spinner diameter="40" />
+  </div>
+}

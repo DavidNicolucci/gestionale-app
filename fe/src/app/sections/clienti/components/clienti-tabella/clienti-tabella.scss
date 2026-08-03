@@ -1,0 +1,16 @@
+:host {
+  display: block;
+}
+
+/* La tabella scorre da sola sugli schermi stretti, la pagina non si allarga. */
+.tabella {
+  width: 100%;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.vuoto {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+}

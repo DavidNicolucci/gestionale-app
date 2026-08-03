@@ -22,9 +22,7 @@
     }
   </mat-autocomplete>
 
-  @if (loading()) {
-    <mat-spinner matSuffix diameter="20" />
-  } @else if (filtri().termine) {
+  @if (filtri().termine) {
     <button matSuffix mat-icon-button type="button" aria-label="Pulisci ricerca" (click)="onPulisci()">
       <mat-icon>close</mat-icon>
     </button>
@@ -72,4 +70,14 @@
       }
     </mat-autocomplete>
   </mat-form-field>
+
+  <div class="pulsanti">
+    <button mat-stroked-button type="button" [disabled]="!haFiltri()" (click)="rimuovi.emit()">
+      Rimuovi filtri
+    </button>
+
+    <button mat-flat-button type="button" [disabled]="!haFiltri()" (click)="applica.emit()">
+      Applica filtri
+    </button>
+  </div>
 </div>

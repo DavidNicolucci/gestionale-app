@@ -2,11 +2,32 @@
   display: block;
   min-height: 100dvh;
   background-color: #f4f5f7;
+  /* Riferimento per lo spinner in absolute. */
+  position: relative;
+}
+
+/*
+ * Spinner unico della pagina, centrato sull'intera sezione.
+ * pointer-events: none perché non deve rubare i click ai campi di ricerca:
+ * la ricerca delle tendine parte mentre si scrive e bloccherebbe la digitazione.
+ */
+.caricamento {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
 
 .page {
   padding: 4rem;
+}
+
+.tabella {
+  display: block;
+  margin-top: 2rem;
 }
 
 .errore {
