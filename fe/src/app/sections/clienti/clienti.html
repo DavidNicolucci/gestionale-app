@@ -19,15 +19,17 @@
     <p class="errore">{{ errorMessage() }}</p>
   }
 
-  <!-- Mentre si digita i risultati stanno solo nelle tendine: la tabella
-       compare al click su "Applica filtri". -->
-  @if (tabellaVisibile()) {
-    <app-clienti-tabella
-      class="tabella"
-      [clienti]="clientiTabella()"
-      [loading]="loadingTabella()"
-    />
-  }
+  <!-- La tabella c'è sempre: all'arrivo mostra tutti i clienti, e "Applica filtri"
+       la restringe. Mentre si digita cambiano solo le tendine, non le righe. -->
+  <app-clienti-tabella
+    class="tabella"
+    [clienti]="clientiTabella()"
+    [loading]="loadingTabella()"
+    [totaleElementi]="totaleElementi()"
+    [numeroDiPagina]="numeroDiPagina()"
+    [righePerPagina]="righePerPagina()"
+    (paginaChange)="onPagina($event)"
+  />
 </div>
 
 <!-- Spinner unico della pagina: vale sia per la ricerca delle tendine sia per

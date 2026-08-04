@@ -11,9 +11,19 @@ import {ClienteModel} from './interfaces/cliente.model';
 import {ClienteRicercaRequestModel} from './interfaces/cliente-ricerca-request.model';
 import {ClientiFiltriModel, FILTRI_CLIENTI_VUOTI} from './interfaces/clienti-filtri.model';
 import {ClientApiiService} from './services/client-apii.service';
+import {PaginaResponseModel} from '../../shared/interfaces/pagina-response.model';
+import {PAGINAZIONE_INIZIALE, PaginazioneModel} from '../../shared/interfaces/paginazione.model';
 
 /** Attesa prima di interrogare il backend, così non parte una chiamata per ogni tasto. */
 const DEBOUNCE_MS = 300;
+
+/** Risposta di ripiego quando non c'è niente da chiedere o la chiamata fallisce. */
+const PAGINA_VUOTA: PaginaResponseModel<ClienteModel> = {
+  risultati: [],
+  pagine: 0,
+  numeroDiPagina: 0,
+  totaleElementi: 0,
+};
 
 @Component({
   selector: 'app-clienti',
@@ -37,16 +47,40 @@ export class Clienti {
     Clienti.distinti(this.clienti().map((cliente) => cliente.partitaIva)),
   );
 
-  /** Righe della tabella: si aggiornano solo con "Applica filtri". */
+  /** Righe della tabella: tutti i clienti all'arrivo, solo i filtrati dopo "Applica filtri". */
   protected readonly clientiTabella = signal<ClienteModel[]>([]);
-  protected readonly loadingTabella = signal(false);
-  protected readonly tabellaVisibile = signal(false);
+  // Parte a true: la prima ricerca viene lanciata dal costruttore, e senza questo
+  // la tabella mostrerebbe "Nessun cliente trovato" per il tempo della chiamata.
+  protected readonly loadingTabella = signal(true);
+
+  /** Pagina e righe scelte nel paginatore. Si parte da 0, come il backend. */
+  private readonly paginazione = signal<PaginazioneModel>(PAGINAZIONE_INIZIALE);
+
+  /** Totale trovato dai filtri: senza questo il paginatore non sa quante pagine ci sono. */
+  protected readonly totaleElementi = signal(0);
+  protected readonly numeroDiPagina = computed(() => this.paginazione().numeroPagina);
+  protected readonly righePerPagina = computed(() => this.paginazione().righePerPagina);
 
   /** Una sola attesa a schermo, qualunque delle due ricerche sia in corso. */
   protected readonly inCaricamento = computed(() => this.loading() || this.loadingTabella());
 
-  /** Copia dei filtri fatta al click su "Applica filtri". */
-  private readonly filtriApplicati = signal<ClientiFiltriModel | null>(null);
+  /**
+   * Copia dei filtri fatta al click su "Applica filtri". Parte vuota, non null:
+   * all'arrivo sulla pagina la tabella mostra tutti i clienti, e i filtri la
+   * restringono invece di farla comparire.
+   */
+  private readonly filtriApplicati = signal<ClientiFiltriModel>(FILTRI_CLIENTI_VUOTI);
+
+  /**
+   * Richiesta completa della tabella: filtri applicati più pagina corrente.
+   * Sta tutto qui dentro perché la tabella va ricaricata sia quando cambiano i
+   * filtri sia quando si cambia pagina, e le due cose devono viaggiare insieme.
+   * Con i filtri vuoti i campi non vengono inviati e il backend non filtra nulla.
+   */
+  private readonly richiestaTabella = computed<ClienteRicercaRequestModel>(() => ({
+    ...Clienti.componiRichiesta(this.filtriApplicati()),
+    ...this.paginazione(),
+  }));
 
   private readonly clientiService = inject(ClientApiiService);
   private readonly location = inject(Location);
@@ -96,32 +130,30 @@ export class Clienti {
   }
 
   /**
-   * Ricerca esplicita per la tabella: niente debounce, parte a ogni click su
-   * "Applica filtri" perché onApplica emette sempre un oggetto nuovo.
+   * Ricerca della tabella: niente debounce. Parte una prima volta da sola all'arrivo
+   * sulla pagina (senza filtri), poi a ogni click su "Applica filtri" perché onApplica
+   * emette sempre un oggetto nuovo, e a ogni cambio di pagina.
    */
   private osservaTabella(): void {
-    toObservable(this.filtriApplicati)
+    toObservable(this.richiestaTabella)
       .pipe(
         tap(() => this.errorMessage.set(null)),
-        switchMap((filtri) => {
-          if (filtri === null) {
-            this.loadingTabella.set(false);
-            return of<ClienteModel[]>([]);
-          }
-
+        switchMap((richiesta) => {
           this.loadingTabella.set(true);
-          return from(this.clientiService.cerca(Clienti.componiRichiesta(filtri))).pipe(
-            map((pagina) => pagina.risultati),
+          return from(this.clientiService.cerca(richiesta)).pipe(
             catchError(() => {
               this.errorMessage.set('Ricerca non riuscita');
-              return of<ClienteModel[]>([]);
+              return of(PAGINA_VUOTA);
             }),
           );
         }),
         tap(() => this.loadingTabella.set(false)),
         takeUntilDestroyed(),
       )
-      .subscribe((risultati) => this.clientiTabella.set(risultati));
+      .subscribe((pagina) => {
+        this.clientiTabella.set(pagina.risultati);
+        this.totaleElementi.set(pagina.totaleElementi);
+      });
   }
 
   /**
@@ -155,13 +187,22 @@ export class Clienti {
 
   /** Copia sempre in un oggetto nuovo: così anche riapplicando gli stessi filtri la ricerca riparte. */
   protected onApplica(): void {
-    this.tabellaVisibile.set(true);
+    // Filtri nuovi, risultato nuovo: si torna alla prima pagina. Restando sulla
+    // pagina corrente se ne chiederebbe una che nel nuovo risultato può non esistere,
+    // e la tabella uscirebbe vuota pur essendoci righe.
+    this.paginazione.update((paginazione) => ({...paginazione, numeroPagina: 0}));
     this.filtriApplicati.set({...this.filtri()});
   }
 
+  /** Svuota i filtri: la tabella non sparisce, torna a mostrare tutti i clienti. */
   protected onRimuovi(): void {
-    this.tabellaVisibile.set(false);
-    this.filtriApplicati.set(null);
     this.filtri.set(FILTRI_CLIENTI_VUOTI);
+    this.filtriApplicati.set({...FILTRI_CLIENTI_VUOTI});
+    this.paginazione.update((paginazione) => ({...paginazione, numeroPagina: 0}));
+  }
+
+  /** Cambio pagina o di righe per pagina: i filtri restano quelli già applicati. */
+  protected onPagina(paginazione: PaginazioneModel): void {
+    this.paginazione.set(paginazione);
   }
 }

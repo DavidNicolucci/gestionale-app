@@ -2,12 +2,21 @@
   display: block;
 }
 
-/* La tabella scorre da sola sugli schermi stretti, la pagina non si allarga. */
-.tabella {
-  width: 100%;
+/* Tabella e paginatore stanno nello stesso riquadro: gli angoli tondi e lo sfondo
+   li tiene il contenitore, così il paginatore non sembra una scheda staccata. */
+.riquadro {
   background: #fff;
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* La tabella scorre da sola sugli schermi stretti, la pagina non si allarga. */
+.tabella {
+  width: 100%;
+}
+
+.paginatore {
+  background: transparent;
 }
 
 .vuoto {

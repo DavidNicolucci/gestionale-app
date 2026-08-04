@@ -116,6 +116,44 @@ INSERT INTO cliente (ragione_sociale, partita_iva, indirizzo)
 VALUES ('Acme S.p.A.', '01234567890', 'Via Milano 1, Milano');
 GO
 
+-- ---- Altri clienti ----
+-- Servono per provare la paginazione della tabella: con Acme fanno 25 righe,
+-- cioe' 5 pagine da 5, 3 da 10 e 1 da 25 (le dimensioni offerte dal paginatore).
+-- Qui non usiamo 24 blocchi IF NOT EXISTS: la lista sta in una tabella di valori
+-- e la NOT EXISTS scarta quelli gia' presenti, quindi resta rieseguibile come il resto.
+INSERT INTO cliente (ragione_sociale, partita_iva, indirizzo)
+SELECT nuovi.ragione_sociale, nuovi.partita_iva, nuovi.indirizzo
+FROM (VALUES
+    ('Bianchi Costruzioni S.r.l.',  '02345678901', 'Via Torino 22, Torino'),
+    ('Rossi Impianti S.p.A.',       '03456789012', 'Corso Francia 8, Torino'),
+    ('Verdi Logistica S.r.l.',      '04567890123', 'Via Emilia 45, Bologna'),
+    ('Ferrari Meccanica S.p.A.',    '05678901234', 'Via del Lavoro 3, Modena'),
+    ('Lombardi Servizi S.r.l.',     '06789012345', 'Piazza Duomo 12, Milano'),
+    ('Marino Trasporti S.r.l.',     '07890123456', 'Via Napoli 90, Napoli'),
+    ('Greco Edilizia S.p.A.',       '08901234567', 'Via Etnea 120, Catania'),
+    ('Conti Energia S.r.l.',        '09012345678', 'Viale Marconi 7, Roma'),
+    ('Ricci Informatica S.r.l.',    '10123456789', 'Via Tiburtina 220, Roma'),
+    ('Bruno Alimentari S.p.A.',     '11234567890', 'Via Garibaldi 15, Parma'),
+    ('Galli Arredamenti S.r.l.',    '12345678901', 'Via Veneto 33, Firenze'),
+    ('Costa Navale S.p.A.',         '13456789012', 'Molo Ponente 2, Genova'),
+    ('Fontana Chimica S.r.l.',      '14567890123', 'Zona Industriale 18, Ravenna'),
+    ('Barbieri Tessile S.p.A.',     '15678901234', 'Via delle Filande 6, Prato'),
+    ('Moretti Vini S.r.l.',         '16789012345', 'Strada Provinciale 4, Asti'),
+    ('Sartori Farmaceutici S.p.A.', '17890123456', 'Via Pasteur 11, Verona'),
+    ('De Luca Sicurezza S.r.l.',    '18901234567', 'Via Cavour 77, Bari'),
+    ('Pellegrini Catering S.r.l.',  '19012345678', 'Via Appia 200, Latina'),
+    ('Villa Immobiliare S.p.A.',    '20123456789', 'Corso Vittorio 5, Milano'),
+    ('Gatti Elettronica S.r.l.',    '21234567890', 'Via Fermi 9, Pavia'),
+    ('Rizzo Agricola S.r.l.',       '22345678901', 'Contrada Piana 30, Ragusa'),
+    ('Amato Metalli S.p.A.',        '23456789012', 'Via Aldo Moro 14, Brescia'),
+    ('Silvestri Grafica S.r.l.',    '24567890123', 'Via Gutenberg 2, Padova'),
+    ('Palumbo Marittima S.p.A.',    '25678901234', 'Banchina Levante 1, Trieste')
+) AS nuovi(ragione_sociale, partita_iva, indirizzo)
+WHERE NOT EXISTS (
+    SELECT 1 FROM cliente c WHERE c.ragione_sociale = nuovi.ragione_sociale
+);
+GO
+
 -- ---- Siti (associati al cliente Acme) ----
 IF NOT EXISTS (SELECT 1 FROM sito WHERE nome = 'Cantiere Via Roma')
 INSERT INTO sito (nome, indirizzo, cliente_id)
