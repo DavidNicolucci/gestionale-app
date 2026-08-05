@@ -1,21 +1,24 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatPaginatorIntl, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { ClienteModel } from '../../interfaces/cliente.model';
 import {
   OPZIONI_RIGHE_PER_PAGINA,
   PaginazioneModel,
   RIGHE_PER_PAGINA_DEFAULT,
 } from '../../../../shared/interfaces/paginazione.model';
+import { paginatoreItaliano } from '../../../../shared/services/paginatore-italiano';
 
 /** Tabella dei clienti trovati: riceve le righe già pronte dal componente pagina. */
 @Component({
   selector: 'app-clienti-tabella',
-  imports: [MatTableModule, MatPaginatorModule],
+  imports: [MatIcon, MatTableModule, MatPaginatorModule],
   templateUrl: './clienti-tabella.html',
   styleUrl: './clienti-tabella.scss',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [{ provide: MatPaginatorIntl, useFactory: paginatoreItaliano }],
 })
 export class ClientiTabella {
   readonly clienti = input.required<ClienteModel[]>();

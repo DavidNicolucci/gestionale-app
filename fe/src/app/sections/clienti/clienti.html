@@ -7,34 +7,34 @@
   <h1 class="mb -5">Clienti</h1>
 
   <app-clienti-search-bar
-    [filtri]="filtri()"
-    [opzioniRagioneSociale]="opzioniRagioneSociale()"
-    [opzioniPartitaIva]="opzioniPartitaIva()"
+    [filtri]="query.filtri()"
+    [opzioniRagioneSociale]="query.opzioniRagioneSociale()"
+    [opzioniPartitaIva]="query.opzioniPartitaIva()"
     (filtriChange)="onFiltri($event)"
     (applica)="onApplica()"
     (rimuovi)="onRimuovi()"
   />
 
-  @if (errorMessage()) {
-    <p class="errore">{{ errorMessage() }}</p>
+  @if (query.errorMessage()) {
+    <p class="errore">{{ query.errorMessage() }}</p>
   }
 
   <!-- La tabella c'è sempre: all'arrivo mostra tutti i clienti, e "Applica filtri"
        la restringe. Mentre si digita cambiano solo le tendine, non le righe. -->
   <app-clienti-tabella
     class="tabella"
-    [clienti]="clientiTabella()"
-    [loading]="loadingTabella()"
-    [totaleElementi]="totaleElementi()"
-    [numeroDiPagina]="numeroDiPagina()"
-    [righePerPagina]="righePerPagina()"
+    [clienti]="query.clientiTabella()"
+    [loading]="query.loadingTabella()"
+    [totaleElementi]="query.totaleElementi()"
+    [numeroDiPagina]="query.numeroDiPagina()"
+    [righePerPagina]="query.righePerPagina()"
     (paginaChange)="onPagina($event)"
   />
 </div>
 
 <!-- Spinner unico della pagina: vale sia per la ricerca delle tendine sia per
      quella della tabella. Non intercetta i click, così si può continuare a scrivere. -->
-@if (inCaricamento()) {
+@if (query.inCaricamento()) {
   <div class="caricamento">
     <mat-spinner diameter="40" />
   </div>

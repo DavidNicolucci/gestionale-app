@@ -7,7 +7,7 @@ import { ClienteRicercaRequestModel } from '../interfaces/cliente-ricerca-reques
 import { PaginaResponseModel } from '../../../shared/interfaces/pagina-response.model';
 
 @Injectable({ providedIn: 'root' })
-export class ClientApiiService {
+export class ClientApiService {
   private readonly http = inject(HttpClient);
 
   /**
