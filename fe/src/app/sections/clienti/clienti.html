@@ -1,19 +1,25 @@
 <div class="page mb-8">
-  <button class="indietro" mat-button type="button" (click)="onIndietro()">
-    <mat-icon>arrow_back</mat-icon>
-    Indietro
-  </button>
+  <app-go-back class="indietro" [to]="AppRoute.HOME" />
 
   <h1 class="mb -5">Clienti</h1>
 
-  <app-clienti-search-bar
-    [filtri]="query.filtri()"
-    [opzioniRagioneSociale]="query.opzioniRagioneSociale()"
-    [opzioniPartitaIva]="query.opzioniPartitaIva()"
-    (filtriChange)="onFiltri($event)"
-    (applica)="onApplica()"
-    (rimuovi)="onRimuovi()"
-  />
+  <!-- Il pulsante non è un filtro: sta fuori dalla search bar, spinto a destra. -->
+  <div class="barra">
+    <app-clienti-search-bar
+      class="ricerca"
+      [filtri]="query.filtri()"
+      [opzioniRagioneSociale]="query.opzioniRagioneSociale()"
+      [opzioniPartitaIva]="query.opzioniPartitaIva()"
+      (filtriChange)="onFiltri($event)"
+      (applica)="onApplica()"
+      (rimuovi)="onRimuovi()"
+    />
+
+    <button class="nuovo" mat-flat-button type="button" (click)="onNuovoCliente()">
+      <mat-icon>add</mat-icon>
+      Nuovo cliente
+    </button>
+  </div>
 
   @if (query.errorMessage()) {
     <p class="errore">{{ query.errorMessage() }}</p>

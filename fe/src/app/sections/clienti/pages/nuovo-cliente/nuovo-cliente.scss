@@ -1,0 +1,21 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+  background-color: #f4f5f7;
+}
+
+.page {
+  padding: 4rem;
+}
+
+/* Allineata a sinistra sopra al contenuto della pagina. */
+.indietro {
+  display: block;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 1rem;
+  }
+}

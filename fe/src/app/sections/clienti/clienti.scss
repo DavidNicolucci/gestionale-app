@@ -25,6 +25,24 @@
   padding: 4rem;
 }
 
+/* Search bar a sinistra, "Nuovo cliente" all'estrema destra, sulla riga dei filtri. */
+.barra {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+
+  .ricerca {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Stessa distanza dal fondo dei pulsanti dei filtri. */
+  .nuovo {
+    flex: 0 0 auto;
+    margin-bottom: 0.25rem;
+  }
+}
+
 .tabella {
   display: block;
   margin-top: 2rem;
@@ -37,8 +55,8 @@
 
 /* Allineata a sinistra sopra al contenuto della pagina. */
 .indietro {
+  display: block;
   margin-bottom: 1.5rem;
-  color: var(--mat-sys-on-surface-variant);
 }
 
 @media (max-width: 768px) {
