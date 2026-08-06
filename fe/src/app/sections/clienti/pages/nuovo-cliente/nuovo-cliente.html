@@ -3,4 +3,26 @@
   <app-go-back class="indietro" [to]="AppRoute.CLIENTI" />
 
   <h1>Nuovo cliente</h1>
+
+  <!-- Errore di salvataggio: quelli dei singoli campi stanno sotto ai campi. -->
+  @if (query.errorMessage()) {
+    <p class="errore">{{ query.errorMessage() }}</p>
+  }
+
+  <app-nuovo-cliente-form
+    class="modulo"
+    [form]="form"
+    [inSalvataggio]="query.inSalvataggio()"
+    [isSalvaDisabled]="isSalvaDisabled()"
+    (salva)="onSalva()"
+    (annulla)="onAnnulla()"
+  />
 </div>
+
+<!-- Copre la pagina mentre si salva: qui, a differenza della ricerca, i click
+     vanno bloccati per non far partire due creazioni. -->
+@if (query.inSalvataggio()) {
+  <div class="caricamento">
+    <mat-spinner diameter="40" />
+  </div>
+}

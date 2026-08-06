@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { plainToInstance } from 'class-transformer';
 import { ClienteModel } from '../interfaces/cliente.model';
 import { ClienteRicercaRequestModel } from '../interfaces/cliente-ricerca-request.model';
+import { SalvaClienteRequestModel } from '../pages/nuovo-cliente/models/salva-cliente-request.model';
 import { PaginaResponseModel } from '../../../shared/interfaces/pagina-response.model';
 
 @Injectable({ providedIn: 'root' })
@@ -15,8 +16,14 @@ export class ClientApiService {
    * body vuoto = prima pagina senza filtri.
    */
   async cerca(filtri: ClienteRicercaRequestModel): Promise<PaginaResponseModel<ClienteModel>> {
-    const post$= this.http.post<PaginaResponseModel<ClienteModel>>('/api/clienti/ricerca', filtri)
+    const post$ = this.http.post<PaginaResponseModel<ClienteModel>>('/api/clienti/ricerca', filtri);
     const response = await firstValueFrom(post$);
-    return {...response, risultati: plainToInstance(ClienteModel, response.risultati ?? [])};
+    return { ...response, risultati: plainToInstance(ClienteModel, response.risultati ?? []) };
+  }
+
+  /** Crea un cliente e restituisce quello salvato, con l'id assegnato dal backend. */
+  async crea(cliente: SalvaClienteRequestModel): Promise<ClienteModel> {
+    const post$ = this.http.post<ClienteModel>('/api/clienti', cliente);
+    return plainToInstance(ClienteModel, await firstValueFrom(post$));
   }
 }

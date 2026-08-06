@@ -1,0 +1,64 @@
+<!-- `novalidate`: i controlli sono quelli del form Angular, non quelli del browser. -->
+<form class="form" novalidate (submit)="onSubmit($event)">
+  @let controls = form().controls;
+  @let erroreRagioneSociale = messaggioErrore(controls.ragioneSociale);
+  @let errorePartitaIva = messaggioErrore(controls.partitaIva);
+  @let erroreIndirizzo = messaggioErrore(controls.indirizzo);
+
+  <mat-form-field class="campo campo-lungo" appearance="outline">
+    <mat-label>Ragione sociale</mat-label>
+
+    <input
+      matInput
+      type="text"
+      autocomplete="organization"
+      required
+      [formControl]="controls.ragioneSociale"
+    />
+
+    @if (erroreRagioneSociale) {
+      <mat-error>{{ erroreRagioneSociale }}</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field class="campo" appearance="outline">
+    <mat-label>Partita IVA</mat-label>
+
+    <input
+      matInput
+      type="text"
+      autocomplete="off"
+      inputmode="numeric"
+      [maxlength]="LUNGHEZZA_MAX_PARTITA_IVA"
+      [formControl]="controls.partitaIva"
+    />
+
+    <mat-hint align="end">
+      {{ controls.partitaIva.value?.length ?? 0 }}/{{ LUNGHEZZA_MAX_PARTITA_IVA }}
+    </mat-hint>
+
+    @if (errorePartitaIva) {
+      <mat-error>{{ errorePartitaIva }}</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field class="campo campo-lungo" appearance="outline">
+    <mat-label>Indirizzo</mat-label>
+
+    <input matInput type="text" autocomplete="street-address" [formControl]="controls.indirizzo" />
+
+    @if (erroreIndirizzo) {
+      <mat-error>{{ erroreIndirizzo }}</mat-error>
+    }
+  </mat-form-field>
+
+  <div class="pulsanti">
+    <button mat-stroked-button type="button" [disabled]="inSalvataggio()" (click)="annulla.emit()">
+      Annulla
+    </button>
+
+    <button mat-flat-button type="submit" [disabled]="isSalvaDisabled() || inSalvataggio()">
+      Salva cliente
+    </button>
+  </div>
+</form>
