@@ -1,0 +1,126 @@
+:host {
+  display: block;
+}
+
+/* L'input vero non si mostra: si apre dal riquadro. display: none lo toglierebbe
+   dal form e in alcuni browser non lo renderebbe più cliccabile da codice. */
+.input-nascosto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.zona {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 3rem 1.5rem;
+  border: 2px dashed var(--mat-sys-outline, #b0b4bb);
+  border-radius: 12px;
+  background-color: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    border-color: var(--mat-sys-primary, #3f51b5);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  /* Mentre il file è sospeso sopra al riquadro: senza, non si capisce dove lasciarlo. */
+  &--attiva {
+    border-color: var(--mat-sys-primary, #3f51b5);
+    background-color: #eef1fb;
+  }
+
+  &__icona {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 2.5rem;
+    color: var(--mat-sys-primary, #3f51b5);
+  }
+
+  &__titolo {
+    font-weight: 500;
+  }
+
+  &__nota {
+    font-size: 0.875rem;
+    opacity: 0.7;
+  }
+}
+
+.scelto {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--mat-sys-outline, #b0b4bb);
+  border-radius: 12px;
+  background-color: #fff;
+
+  &__icona {
+    flex: 0 0 auto;
+    color: var(--mat-sys-primary, #3f51b5);
+  }
+
+  /* min-width: 0 perché il nome lungo possa essere troncato invece di allargare la riga. */
+  &__dati {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__nome {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  &__peso {
+    font-size: 0.875rem;
+    opacity: 0.7;
+  }
+}
+
+.azioni {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.formato {
+  margin-top: 2rem;
+  font-size: 0.875rem;
+  opacity: 0.8;
+
+  &__titolo {
+    margin: 0 0 0.5rem;
+    font-weight: 500;
+  }
+
+  &__elenco {
+    margin: 0;
+    padding-left: 1.25rem;
+
+    li {
+      margin-bottom: 0.25rem;
+    }
+  }
+}

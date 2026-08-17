@@ -1,0 +1,30 @@
+<div class="page">
+  <app-go-back class="indietro" [to]="AppRoute.HOME" />
+
+  <h1>Timesheet</h1>
+
+  <p class="sottotitolo">
+    Carica il file Excel con le ore lavorate: viene preso in carico subito e importato poco dopo,
+    quindi le righe potrebbero non essere ancora visibili appena finito.
+  </p>
+
+  @if (query.errorMessage()) {
+    <p class="errore">{{ query.errorMessage() }}</p>
+  }
+
+  <app-timesheet-upload
+    class="modulo"
+    [file]="query.file()"
+    [inCaricamento]="query.inCaricamento()"
+    (fileChange)="onFile($event)"
+    (importa)="onImporta()"
+  />
+</div>
+
+<!-- Copre la pagina durante il caricamento: i click vanno bloccati per non far
+     partire due import dello stesso file. -->
+@if (query.inCaricamento()) {
+  <div class="caricamento">
+    <mat-spinner diameter="40" />
+  </div>
+}

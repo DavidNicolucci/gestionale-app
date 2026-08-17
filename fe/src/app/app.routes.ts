@@ -15,6 +15,11 @@ export const routes: Routes = [
     loadChildren: () => import('./sections/clienti/routes').then((m) => m.clientiRoutes),
   },
   {
+    path: AppRoute.TIMESHEET,
+    canActivate: [authGuard],
+    loadChildren: () => import('./sections/timesheet/routes').then((m) => m.timesheetRoutes),
+  },
+  {
     path: AppRoute.LOGIN,
     canActivate: [guestGuard],
     loadComponent: () => import('./sections/login/login').then((m) => m.Login),

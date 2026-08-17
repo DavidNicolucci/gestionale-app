@@ -1,0 +1,76 @@
+<!-- Fuori dal riquadro: resta lo stesso elemento anche quando il riquadro viene
+     sostituito dalla riga del file, così la scelta continua a funzionare. -->
+<input
+  #inputFile
+  class="input-nascosto"
+  type="file"
+  [accept]="accept"
+  [disabled]="inCaricamento()"
+  (change)="onInput($event)"
+/>
+
+@if (file(); as fileScelto) {
+  <!-- File pronto: al posto del riquadro, altrimenti servirebbe un pulsante
+       "Rimuovi" dentro a un altro pulsante, che l'HTML non permette. -->
+  <div class="scelto">
+    <mat-icon class="scelto__icona">description</mat-icon>
+
+    <div class="scelto__dati">
+      <span class="scelto__nome">{{ fileScelto.name }}</span>
+      <span class="scelto__peso">{{ dimensione() }}</span>
+    </div>
+
+    <button
+      mat-icon-button
+      type="button"
+      aria-label="Togli il file"
+      [disabled]="inCaricamento()"
+      (click)="onRimuovi()"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+} @else {
+  <!-- È un button e non un div: si apre anche da tastiera, senza aggiungere
+       role e gestione dei tasti a mano. -->
+  <button
+    class="zona"
+    type="button"
+    [class.zona--attiva]="inTrascinamento()"
+    [disabled]="inCaricamento()"
+    (click)="onScegli()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave()"
+    (drop)="onDrop($event)"
+  >
+    <mat-icon class="zona__icona">upload_file</mat-icon>
+    <span class="zona__titolo">Trascina qui il file Excel, oppure clicca per sceglierlo</span>
+    <span class="zona__nota">Formati {{ estensioni }}</span>
+  </button>
+}
+
+<div class="azioni">
+  <button
+    mat-flat-button
+    type="button"
+    [disabled]="!file() || inCaricamento()"
+    (click)="importa.emit()"
+  >
+    <mat-icon>cloud_upload</mat-icon>
+    Importa
+  </button>
+</div>
+
+<!-- Le colonne che il backend si aspetta: sbagliarne l'ordine non dà errore,
+     le righe vengono solo scartate durante l'elaborazione. -->
+<div class="formato">
+  <p class="formato__titolo">Come deve essere fatto il file</p>
+  <ul class="formato__elenco">
+    <li>La prima riga è quella delle intestazioni e viene saltata</li>
+    <li>Colonna A: codice fiscale del dipendente, già presente in anagrafica</li>
+    <li>Colonna B: nome del sito, uguale a quello registrato</li>
+    <li>Colonna C: data del lavoro (anno-mese-giorno)</li>
+    <li>Colonna D: ore lavorate</li>
+    <li>Viene letto solo il primo foglio</li>
+  </ul>
+</div>

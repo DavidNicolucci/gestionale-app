@@ -1,0 +1,52 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+  background-color: #f4f5f7;
+  /* Riferimento per lo spinner in absolute. */
+  position: relative;
+}
+
+.page {
+  padding: 4rem;
+}
+
+/* Allineata a sinistra sopra al contenuto della pagina. */
+.indietro {
+  display: block;
+  margin-bottom: 1.5rem;
+}
+
+.sottotitolo {
+  margin: 0.5rem 0 0;
+  max-width: 60ch;
+  opacity: 0.75;
+}
+
+.errore {
+  margin: 1rem 0 0;
+  color: var(--mat-sys-error);
+}
+
+/* Larghezza contenuta: allargato a tutta pagina il riquadro di rilascio
+   diventerebbe una fascia vuota. */
+.modulo {
+  display: block;
+  max-width: 40rem;
+  margin-top: 1.5rem;
+}
+
+/* Intercetta i click, al contrario dello spinner dell'elenco clienti: durante
+   il caricamento non si deve poter ripremere "Importa". */
+.caricamento {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 1rem;
+  }
+}
