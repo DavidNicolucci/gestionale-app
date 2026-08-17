@@ -1,5 +1,7 @@
 package com.gestionale.dominio.auth.controller;
 
+import com.gestionale.dominio.ai.ConversazioneService;
+import com.gestionale.dominio.auth.model.Autenticazione;
 import com.gestionale.dominio.auth.model.LoginRequest;
 import com.gestionale.dominio.auth.model.LoginResponse;
 import com.gestionale.dominio.auth.service.AuthService;
@@ -29,13 +31,17 @@ public class AuthResource {
     AuthService authService;
 
     @Inject
+    ConversazioneService conversazione;
+
+    @Inject
     JsonWebToken jwt;
 
     @POST
     @Path("/login")
     @PermitAll                              // ovvio: al login si arriva senza essere loggati
     public Response login(@Valid LoginRequest req) {
-        String token = authService.autentica(req.username, req.password);
+        Autenticazione esito = authService.autentica(req.username, req.password);
+        String token = esito.token();
         // Il token sta solo nel cookie. httpOnly: il JavaScript della pagina non puo'
         // leggerlo, quindi non se lo puo' rubare uno script malevolo.
         // sameSite STRICT: il browser lo manda solo se la richiesta parte dal nostro sito.
@@ -47,7 +53,7 @@ public class AuthResource {
                 .sameSite(NewCookie.SameSite.STRICT)
                 .maxAge(COOKIE_MAX_AGE_SECONDS)
                 .build();
-        return Response.ok(new LoginResponse(req.username))
+        return Response.ok(new LoginResponse(req.username, esito.ruoli()))
                 .cookie(cookie)
                 .build();
     }
@@ -56,6 +62,14 @@ public class AuthResource {
     @Path("/logout")
     @PermitAll
     public Response logout() {
+        // La conversazione con l'assistente muore con la sessione: storico su
+        // database e memoria del modello se ne vanno insieme al cookie.
+        // getName() e' null se si arriva qui senza un token valido (cookie gia'
+        // scaduto, doppio click su "Esci"): in quel caso non c'e' niente da pulire.
+        if (jwt.getName() != null) {
+            conversazione.cancella(jwt.getName());
+        }
+
         // Riscrive il cookie vuoto con durata 0: il browser lo cancella subito
         NewCookie cookie = new NewCookie.Builder(COOKIE_NAME)
                 .value("")
@@ -74,6 +88,7 @@ public class AuthResource {
     public LoginResponse me() {
         // Il frontend non puo' leggere il cookie, quindi quando si ricarica la pagina
         // chiama qui per sapere se e' ancora loggato e chi e' l'utente.
-        return new LoginResponse(jwt.getName());
+        // I ruoli arrivano dai gruppi del token: nessuna query in piu' al database.
+        return new LoginResponse(jwt.getName(), jwt.getGroups());
     }
 }

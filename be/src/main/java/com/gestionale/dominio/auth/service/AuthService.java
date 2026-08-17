@@ -1,5 +1,6 @@
 package com.gestionale.dominio.auth.service;
 
+import com.gestionale.dominio.auth.model.Autenticazione;
 import com.gestionale.dominio.security.entity.AppUser;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import io.smallrye.jwt.build.Jwt;
@@ -30,7 +31,7 @@ public class AuthService {
         this.issuer = issuer;
     }
 
-    public String autentica(String username, String password) {
+    public Autenticazione autentica(String username, String password) {
         // 1. Cerca l'utente.
         Optional<AppUser> utente = AppUser.find("username", username).firstResultOptional();
 
@@ -53,10 +54,14 @@ public class AuthService {
                 .collect(Collectors.toSet());
 
         // 5. Crea il token e lo firma
-        return Jwt.issuer(issuer)
+        String token = Jwt.issuer(issuer)
                 .upn(username)                       // chi e' l'utente
                 .groups(ruoli)                       // i ruoli che poi legge @RolesAllowed
                 .expiresIn(Duration.ofHours(8))      // dopo 8 ore va rifatto il login
                 .sign();                             // firma con la nostra chiave privata
+
+        // I ruoli tornano anche fuori dal token: il frontend non puo' leggere il
+        // cookie, quindi senza questo non saprebbe cosa mostrare all'utente.
+        return new Autenticazione(token, ruoli);
     }
 }

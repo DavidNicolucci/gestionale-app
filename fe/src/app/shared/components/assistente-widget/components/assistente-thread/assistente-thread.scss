@@ -1,0 +1,144 @@
+:host {
+  display: block;
+  min-height: 0;
+}
+
+.elenco {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.attesa-storico {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0;
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+.vuota {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+
+  &__titolo {
+    margin: 0 0 0.25rem;
+    font-size: 0.875rem;
+    opacity: 0.7;
+  }
+}
+
+.suggerimento {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--mat-sys-outline, #c8ccd4);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mat-sys-primary, #3f51b5);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background-color: #eef1fb;
+  }
+}
+
+.bolla {
+  max-width: 85%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  /* Le risposte del modello contengono a capo ed elenchi: senza questo
+     arriverebbero tutte su una riga sola. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  &--utente {
+    align-self: flex-end;
+    background-color: var(--mat-sys-primary, #3f51b5);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  &--assistente {
+    align-self: flex-start;
+    background-color: #eceff3;
+    border-bottom-left-radius: 4px;
+  }
+
+  &--attesa {
+    padding: 0.75rem;
+  }
+
+  &__testo {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  &__ora {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    opacity: 0.6;
+    text-align: right;
+  }
+}
+
+/* Tre puntini che pulsano a turno mentre si aspetta la risposta. */
+.puntini {
+  display: inline-flex;
+  gap: 0.25rem;
+
+  span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+    opacity: 0.4;
+    animation: puntino 1.2s infinite ease-in-out;
+  }
+
+  span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+
+@keyframes puntino {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 0.9;
+    transform: translateY(-3px);
+  }
+}
+
+/* Chi ha impostato "riduci animazioni" nel sistema non deve vedere i puntini saltare. */
+@media (prefers-reduced-motion: reduce) {
+  .puntini span {
+    animation: none;
+  }
+}
+
+.errore {
+  margin: 0;
+  align-self: stretch;
+  font-size: 0.8125rem;
+  color: var(--mat-sys-error, #b3261e);
+}

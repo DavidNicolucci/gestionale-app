@@ -1,0 +1,51 @@
+<!-- role="log" + aria-live: chi usa uno screen reader sente le risposte man mano
+     che arrivano, senza dover andare a cercarle. -->
+<div
+  #elenco
+  class="elenco"
+  role="log"
+  aria-live="polite"
+  aria-label="Conversazione con l'assistente"
+>
+  @if (inCaricamento()) {
+    <div class="attesa-storico">
+      <mat-spinner diameter="24" />
+      <span>Recupero la conversazione…</span>
+    </div>
+  } @else if (messaggi().length === 0) {
+    <div class="vuota">
+      <p class="vuota__titolo">Posso cercare dipendenti, clienti, siti e ore lavorate.</p>
+
+      @for (domanda of suggerimenti; track domanda) {
+        <button class="suggerimento" type="button" (click)="suggerimento.emit(domanda)">
+          {{ domanda }}
+        </button>
+      }
+    </div>
+  }
+
+  <!-- track $index: la lista cresce solo in fondo, e il messaggio appena scritto
+       dall'utente non ha ancora un id del backend. -->
+  @for (messaggio of messaggi(); track $index) {
+    <div
+      class="bolla"
+      [class.bolla--utente]="messaggio.autore === AutoreChat.UTENTE"
+      [class.bolla--assistente]="messaggio.autore === AutoreChat.ASSISTENTE"
+    >
+      <p class="bolla__testo">{{ messaggio.testo }}</p>
+      <span class="bolla__ora">{{ messaggio.istante | date: 'HH:mm' }}</span>
+    </div>
+  }
+
+  @if (inAttesa()) {
+    <div class="bolla bolla--assistente bolla--attesa">
+      <span class="puntini" aria-label="Sto scrivendo">
+        <span></span><span></span><span></span>
+      </span>
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <p class="errore">{{ errorMessage() }}</p>
+  }
+</div>

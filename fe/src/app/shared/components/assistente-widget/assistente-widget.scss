@@ -1,0 +1,90 @@
+/* Il widget galleggia sopra alla pagina: l'host non occupa spazio nel flusso,
+   altrimenti aggiungerebbe una fascia vuota in fondo a ogni sezione. */
+:host {
+  display: contents;
+}
+
+.apri {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 1000;
+}
+
+.pannello {
+  position: fixed;
+  right: 1.5rem;
+  /* Sopra al pulsante, che resta cliccabile per richiudere. */
+  bottom: 6rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  width: 22rem;
+  /* Non deve mai superare lo schermo: sotto una certa altezza la chat
+     si accorcia invece di uscire dalla finestra. */
+  height: min(30rem, calc(100dvh - 9rem));
+  border-radius: 16px;
+  background-color: #fff;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+  overflow: hidden;
+
+  &__testa {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.5rem 0.5rem 1rem;
+    background-color: var(--mat-sys-primary, #3f51b5);
+    color: #fff;
+  }
+
+  &__titolo {
+    flex: 1 1 auto;
+    font-weight: 500;
+  }
+
+  /* min-height: 0 su un figlio flex in colonna: senza, l'elenco non si
+     accorcia e lo scroll interno non parte mai. */
+  &__conversazione {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
+
+.scrittura {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-top: 1px solid #e4e7ec;
+
+  &__campo {
+    flex: 1 1 auto;
+    max-height: 6rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--mat-sys-outline, #c8ccd4);
+    border-radius: 12px;
+    font: inherit;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    resize: none;
+
+    &:focus {
+      outline: none;
+      border-color: var(--mat-sys-primary, #3f51b5);
+    }
+
+    &:disabled {
+      background-color: #f4f5f7;
+    }
+  }
+}
+
+/* Su schermo stretto la chat prende quasi tutta la larghezza: a 22rem fissi
+   uscirebbe dal bordo. */
+@media (max-width: 480px) {
+  .pannello {
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+  }
+}

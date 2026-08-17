@@ -103,6 +103,26 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_timesheet_dipendente')
 CREATE INDEX ix_timesheet_dipendente ON timesheet(dipendente_id, data_lavoro);
 GO
 
+-- ---- Chat con l'assistente AI ----
+-- Storico integrale della conversazione, uno per utente: e' quello che il frontend
+-- ricarica nella chatbox. La memoria che viene passata a Gemini e' un'altra cosa
+-- (una finestra sugli ultimi messaggi, tenuta in RAM da langchain4j).
+-- Le righe vengono cancellate al logout, vedi AuthResource.logout.
+IF OBJECT_ID('chat_messaggio', 'U') IS NULL
+CREATE TABLE chat_messaggio (
+                                id       BIGINT IDENTITY(1,1) PRIMARY KEY,
+                                username NVARCHAR(100)  NOT NULL,          -- chi ha la conversazione; stesso valore del JWT
+                                autore   NVARCHAR(20)   NOT NULL,          -- 'UTENTE' oppure 'ASSISTENTE'
+                                testo    NVARCHAR(MAX)  NOT NULL,          -- MAX: le risposte del modello possono essere lunghe
+                                istante  DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME()
+);
+GO
+
+-- La chat si legge sempre come "tutti i messaggi di un utente, in ordine"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_chat_messaggio_utente')
+CREATE INDEX ix_chat_messaggio_utente ON chat_messaggio(username, id);
+GO
+
 -- ============================================================
 -- DATI DI ESEMPIO (seed) per poter testare l'import Excel
 -- Ogni INSERT e' protetto da IF NOT EXISTS: rieseguibile senza duplicati.

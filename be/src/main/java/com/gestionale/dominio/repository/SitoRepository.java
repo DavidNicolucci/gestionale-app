@@ -31,4 +31,25 @@ public class SitoRepository implements PanacheRepository<Sito> {
     public Optional<Sito> perNome(String nome) {
         return find("nome", nome).firstResultOptional();
     }
+
+    // Ricerca libera per l'assistente AI: una parte del nome o dell'indirizzo.
+    // JOIN FETCH sul cliente perche' la risposta lo cita sempre: senza, sarebbe
+    // una query in piu' per ogni sito trovato.
+    public List<Sito> cercaTestuale(String testo, int max) {
+        String cercato = "%" + testo.trim().toLowerCase() + "%";
+        return find("""
+                SELECT s FROM Sito s JOIN FETCH s.cliente
+                WHERE lower(s.nome) LIKE ?1 OR lower(s.indirizzo) LIKE ?1
+                ORDER BY s.nome
+                """, cercato)
+                .range(0, max - 1)
+                .list();
+    }
+
+    // Elenco completo, con il cliente gia' caricato per lo stesso motivo.
+    public List<Sito> elencoConCliente(int max) {
+        return find("SELECT s FROM Sito s JOIN FETCH s.cliente ORDER BY s.nome")
+                .range(0, max - 1)
+                .list();
+    }
 }

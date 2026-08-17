@@ -1,0 +1,59 @@
+@if (abilitato()) {
+  @if (stato.aperto()) {
+    <section class="pannello" aria-label="Assistente AI">
+      <header class="pannello__testa">
+        <mat-icon class="pannello__icona">smart_toy</mat-icon>
+        <span class="pannello__titolo">Assistente</span>
+
+        <button mat-icon-button type="button" aria-label="Chiudi la chat" (click)="stato.chiudi()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </header>
+
+      <app-assistente-thread
+        class="pannello__conversazione"
+        [messaggi]="stato.messaggi()"
+        [inAttesa]="stato.inAttesa()"
+        [inCaricamento]="stato.inCaricamento()"
+        [errorMessage]="stato.errorMessage()"
+        (suggerimento)="onSuggerimento($event)"
+      />
+
+      <div class="scrittura">
+        <textarea
+          #campo
+          class="scrittura__campo"
+          rows="1"
+          placeholder="Chiedi di dipendenti, clienti, siti o ore…"
+          aria-label="Scrivi la domanda"
+          [value]="bozza()"
+          [disabled]="stato.inAttesa()"
+          (input)="onBozza($event)"
+          (keydown)="onTasto($event)"
+        ></textarea>
+
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Invia la domanda"
+          [disabled]="!bozza().trim() || stato.inAttesa()"
+          (click)="onInvia()"
+        >
+          <mat-icon>send</mat-icon>
+        </button>
+      </div>
+    </section>
+  }
+
+  <!-- Resta visibile anche a chat aperta: è il modo per richiuderla. -->
+  <button
+    class="apri"
+    mat-fab
+    type="button"
+    [attr.aria-label]="stato.aperto() ? 'Chiudi assistente' : 'Apri assistente'"
+    [attr.aria-expanded]="stato.aperto()"
+    (click)="onAlterna()"
+  >
+    <mat-icon>{{ stato.aperto() ? 'close' : 'smart_toy' }}</mat-icon>
+  </button>
+}

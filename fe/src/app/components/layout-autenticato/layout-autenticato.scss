@@ -1,0 +1,5 @@
+/* Il guscio non disegna niente di suo: sono le sezioni a occupare la pagina
+   intera, e il widget si posiziona da solo in fixed. */
+:host {
+  display: block;
+}
