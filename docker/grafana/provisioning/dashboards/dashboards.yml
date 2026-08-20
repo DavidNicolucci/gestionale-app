@@ -1,0 +1,14 @@
+# Dice a Grafana di caricare all'avvio tutte le dashboard JSON che trova nella
+# cartella indicata, senza doverle importare a mano dalla UI.
+
+apiVersion: 1
+
+providers:
+  - name: gestionale
+    type: file
+    folder: Gestionale            # cartella in cui compaiono dentro Grafana
+    updateIntervalSeconds: 30     # rilegge i file: modifichi il JSON e si aggiorna
+    allowUiUpdates: true          # si possono ritoccare dalla UI (ma non si salvano sul file)
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

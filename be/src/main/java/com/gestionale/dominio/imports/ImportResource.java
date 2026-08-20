@@ -2,6 +2,8 @@ package com.gestionale.dominio.imports;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gestionale.dominio.observability.MetricheImport;
+import io.opentelemetry.api.trace.Span;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -31,6 +33,9 @@ public class ImportResource {
     @Inject
     ObjectMapper objectMapper;             // per trasformare l'oggetto in JSON
 
+    @Inject
+    MetricheImport metriche;
+
     @POST
     @Path("/timesheet")
     @Consumes(MediaType.MULTIPART_FORM_DATA)   // qui arriva un file, non del JSON
@@ -52,6 +57,12 @@ public class ImportResource {
         ImportMessage msg = new ImportMessage(destinazione.toString(), file.fileName());
         String json = objectMapper.writeValueAsString(msg);
         emitter.send(json);
+
+        // Il contatore degli accodati va letto insieme a quello degli elaborati: se
+        // il primo cresce e il secondo no, i messaggi si stanno fermando in coda o
+        // stanno finendo in DLQ, e nessuno dei due casi produce un errore HTTP.
+        metriche.fileAccodato();
+        Span.current().setAttribute("import.file_name", file.fileName());
 
         // 4. Risponde subito senza aspettare: 202 vuol dire "ricevuto, ci lavoro dopo"
         return Response.accepted()

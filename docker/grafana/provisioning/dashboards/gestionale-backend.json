@@ -1,0 +1,245 @@
+{
+  "title": "Gestionale - Backend",
+  "uid": "gestionale-backend",
+  "tags": ["gestionale", "quarkus"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Traffico HTTP",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Richieste al secondo per endpoint",
+      "description": "Quanto traffico riceve ogni endpoint. Un calo improvviso a zero e' spesso il frontend che non riesce piu' a chiamare il backend.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (uri) (rate(http_server_requests_seconds_count{application=\"gestionale-backend\"}[1m]))",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tempo di risposta p95 per endpoint",
+      "description": "Il 95% delle richieste sta sotto questa soglia. Si guarda il p95 e non la media perche' la media nasconde la coda lenta: con 95 richieste da 10ms e 5 da 3 secondi la media resta buona mentre 1 utente su 20 aspetta.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "fillOpacity": 0 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{application=\"gestionale-backend\"}[5m])))",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Errori 5xx (ultimi 5 min)",
+      "description": "Errori del server, cioe' colpa nostra. I 4xx non ci sono di proposito: un 401 o un 404 sono risposte legittime.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(http_server_requests_seconds_count{application=\"gestionale-backend\", outcome=\"SERVER_ERROR\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Esiti delle richieste",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 18, "x": 6, "y": 9 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(http_server_requests_seconds_count{application=\"gestionale-backend\"}[1m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Import timesheet (asincrono)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }
+    },
+    {
+      "type": "timeseries",
+      "title": "File accodati vs elaborati",
+      "description": "Le due curve devono seguirsi. Se gli accodati crescono e gli elaborati restano piatti i messaggi si stanno accumulando in coda o finiscono in DLQ: nessuno dei due casi produce un errore HTTP, quindi qui e' l'unico posto dove si vede.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(gestionale_import_file_accodati_total[5m]))",
+          "legendFormat": "accodati"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (esito) (increase(gestionale_import_file_elaborati_total[5m]))",
+          "legendFormat": "elaborati - {{esito}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Righe importate per esito",
+      "description": "Righe scartate = dipendente o sito non trovati nel file. Un picco di scartate segnala di solito un file con le colonne sbagliate.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (esito) (increase(gestionale_import_righe_total[5m]))",
+          "legendFormat": "{{esito}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Assistente AI",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Durata risposta assistente (p50 / p95)",
+      "description": "Misura la chiamata a Gemini, che e' esterna e si paga a token: va tenuta separata dalla latenza degli altri endpoint, altrimenti li fa sembrare tutti lenti.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(gestionale_ai_chat_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(gestionale_ai_chat_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Domande all'assistente",
+      "description": "Il tag exception vale 'none' quando la chiamata e' andata a buon fine.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (exception) (increase(gestionale_ai_chat_seconds_count[5m]))",
+          "legendFormat": "{{exception}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "JVM e database",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memoria heap usata",
+      "description": "Un dente di sega regolare e' normale (allocazione + garbage collection). Un minimo che sale a ogni ciclo senza mai tornare giu' e' un memory leak.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 33 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(jvm_memory_used_bytes{application=\"gestionale-backend\", area=\"heap\"})",
+          "legendFormat": "usata"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(jvm_memory_committed_bytes{application=\"gestionale-backend\", area=\"heap\"})",
+          "legendFormat": "riservata"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Pool connessioni SQL Server",
+      "description": "Se le connessioni in attesa smettono di essere zero il pool e' esaurito: le richieste si mettono in fila prima ancora di toccare il database.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 33 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(agroal_active_count{application=\"gestionale-backend\"})",
+          "legendFormat": "attive"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(agroal_available_count{application=\"gestionale-backend\"})",
+          "legendFormat": "disponibili"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(agroal_awaiting_count{application=\"gestionale-backend\"})",
+          "legendFormat": "in attesa"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tempo speso in garbage collection",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 33 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (cause) (rate(jvm_gc_pause_seconds_sum{application=\"gestionale-backend\"}[5m]))",
+          "legendFormat": "{{cause}}"
+        }
+      ]
+    }
+  ]
+}

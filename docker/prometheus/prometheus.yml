@@ -1,0 +1,37 @@
+# Configurazione di Prometheus: cosa interrogare, ogni quanto, e dove.
+# Prometheus non riceve le metriche: se le va a prendere lui ("scrape") facendo una
+# GET sull'endpoint /q/metrics a intervalli regolari. L'applicazione non sa nemmeno
+# che esiste, si limita a tenere aggiornati i suoi contatori.
+
+global:
+  scrape_interval: 15s          # ogni quanto interroga i target
+  evaluation_interval: 15s      # ogni quanto ricalcola le regole di alert
+  external_labels:
+    ambiente: sviluppo          # etichetta appiccicata a tutto: distingue dev da prod
+
+scrape_configs:
+
+  # ---- Il backend Quarkus ----
+  - job_name: gestionale-backend
+    metrics_path: /q/metrics
+
+    static_configs:
+      - targets:
+          # host.docker.internal = "il PC che ospita Docker", visto da dentro il
+          # container. Serve perche' il backend NON gira in Docker: gira sull'host
+          # in quarkus:dev, quindi "localhost" qui dentro sarebbe il container stesso.
+          # Su Linux funziona grazie a extra_hosts nel docker-compose.yml.
+          - host.docker.internal:9000
+        labels:
+          servizio: backend
+
+    # Porta 9000 e non 8443: e' la management interface di Quarkus, HTTP in chiaro.
+    # Sulla porta dell'applicazione ci sarebbero il redirect verso HTTPS e un
+    # certificato self-signed che Prometheus rifiuterebbe.
+
+  # ---- Prometheus che misura se stesso ----
+  # Utile per accorgersi se e' lui ad essere in difficolta' (scrape lenti, memoria).
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090

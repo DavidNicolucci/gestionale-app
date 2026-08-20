@@ -43,6 +43,61 @@ services:                                    # Elenco dei container che compongo
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq      # Persiste code e configurazioni tra i riavvii
 
+  # ==========================================================
+  # OBSERVABILITY - i tre servizi che raccolgono e mostrano i dati
+  # ==========================================================
+  # Nota valida per tutti e tre: il backend NON gira in Docker, gira sull'host con
+  # quarkus:dev. Quindi il backend li raggiunge su localhost (le porte sono pubblicate
+  # qui sotto), mentre loro raggiungono il backend su host.docker.internal.
+
+  jaeger:                                    # Raccoglie e mostra le TRACE (tracing distribuito)
+    image: jaegertracing/all-in-one:1.76.0   # "all-in-one" = collector + storage + UI in un container
+    container_name: gestionale-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"         # Abilita la ricezione in formato OTLP, quello che parla Quarkus
+    ports:
+      - "16686:16686"                        # Interfaccia web: http://localhost:16686
+      - "4317:4317"                          # OTLP su gRPC: e' qui che Quarkus manda gli span
+      - "4318:4318"                          # OTLP su HTTP: alternativa al gRPC, comoda per curl e test
+    # Storage in memoria (default): le trace si perdono al riavvio del container.
+    # Va benissimo in sviluppo; in produzione servirebbe Elasticsearch o Cassandra.
+
+  prometheus:                                # Raccoglie e conserva le METRICHE
+    image: prom/prometheus:v2.55.1
+    container_name: gestionale-prometheus
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro  # :ro = sola lettura
+      - prometheus-data:/prometheus          # Serie storiche: senza volume si azzerano a ogni riavvio
+    ports:
+      - "9090:9090"                          # Interfaccia web: http://localhost:9090
+    extra_hosts:
+      # Crea host.docker.internal dentro il container puntandolo all'host. Su Docker
+      # Desktop (Windows/Mac) c'e' gia', su Linux no: senza questa riga Prometheus non
+      # troverebbe il backend e il target risulterebbe DOWN.
+      - "host.docker.internal:host-gateway"
+
+  grafana:                                   # Disegna i grafici leggendo da Prometheus e Jaeger
+    image: grafana/grafana:11.3.0
+    container_name: gestionale-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      # Password di Grafana: se GRAFANA_PASSWORD non e' nel .env usa "admin".
+      # Va bene solo in locale: Grafana e' esposto sulla 3000 senza HTTPS.
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:-admin}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      # La cartella di provisioning: Grafana la legge all'avvio e si configura da solo
+      # (sorgenti dati + dashboard), senza doverle ricreare a mano nella UI.
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"                          # Interfaccia web: http://localhost:3000
+    depends_on:                              # Solo ordine di avvio: Grafana parte comunque
+      - prometheus                           # anche se Prometheus non risponde subito
+      - jaeger
+
 volumes:                                     # Dichiarazione dei volumi nominati usati sopra
   sqlserver-data:                            # Docker lo crea e gestisce automaticamente
   rabbitmq-data:
+  prometheus-data:
+  grafana-data:

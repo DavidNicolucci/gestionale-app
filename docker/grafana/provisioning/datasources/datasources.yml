@@ -1,0 +1,28 @@
+# Provisioning delle sorgenti dati di Grafana.
+# "Provisioning" vuol dire che Grafana legge questo file all'avvio e si configura da
+# solo: senza, a ogni docker compose down -v bisognerebbe rifare a mano il giro nella
+# UI per ricollegare Prometheus e Jaeger.
+
+apiVersion: 1
+
+datasources:
+
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus              # identificativo fisso: le dashboard lo citano per nome
+    access: proxy                # e' Grafana a chiamare Prometheus, non il browser
+    url: http://prometheus:9090  # nome del servizio in docker-compose, non localhost
+    isDefault: true
+    jsonData:
+      timeInterval: 15s          # deve combaciare con scrape_interval di prometheus.yml
+      # Collega metriche e trace: cliccando su un punto anomalo di un grafico,
+      # Grafana propone le trace corrispondenti su Jaeger.
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger
+
+  - name: Jaeger
+    type: jaeger
+    uid: jaeger
+    access: proxy
+    url: http://jaeger:16686

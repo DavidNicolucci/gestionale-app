@@ -4,9 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gestionale.dominio.model.entity.Dipendente;
 import com.gestionale.dominio.model.entity.Sito;
 import com.gestionale.dominio.model.entity.Timesheet;
+import com.gestionale.dominio.observability.MetricheImport;
 import com.gestionale.dominio.repository.DipendenteRepository;
 import com.gestionale.dominio.repository.SitoRepository;
 import com.gestionale.dominio.repository.TimesheetRepository;
+import io.micrometer.core.instrument.Timer;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -32,16 +36,29 @@ public class ImportConsumer {
     @Inject DipendenteRepository dipendenteRepo;
     @Inject SitoRepository sitoRepo;
     @Inject TimesheetRepository timesheetRepo;
+    @Inject MetricheImport metriche;
 
+    // @WithSpan apre uno span figlio di quello che il connettore RabbitMQ crea alla
+    // ricezione del messaggio. Il contesto di trace viaggia negli header AMQP, quindi
+    // la trace e' la stessa che era partita dalla POST /api/import/timesheet: in Jaeger
+    // si vede l'upload e l'elaborazione, avvenuta dopo e su un altro thread, in un'unica
+    // riga temporale.
     @Incoming("import-in")              // resta in ascolto sulla coda: parte a ogni messaggio
     @Transactional
+    @WithSpan("import timesheet")
     public void elabora(String jsonMessage) {
         String filePathToDelete = null;
         boolean isDbOrTxError = false;
+        Timer.Sample cronometro = metriche.avviaCronometro();
         try {
             ImportMessage msg = objectMapper.readValue(jsonMessage, ImportMessage.class);
             filePathToDelete = msg.filePath;
             LOG.infof("Inizio import del file: %s", msg.fileName);
+
+            // Attributi sullo span: sono quelli che in Jaeger permettono di ritrovare
+            // la trace di UN import preciso invece di scorrerle tutte a mano.
+            Span span = Span.current();
+            span.setAttribute("import.file_name", msg.fileName);
 
             int righeOk = 0;
             int righeErrore = 0;
@@ -98,6 +115,13 @@ public class ImportConsumer {
             LOG.infof("Import completato (%s): %d righe inserite, %d errori",
                     msg.fileName, righeOk, righeErrore);
 
+            span.setAttribute("import.righe_ok", righeOk);
+            span.setAttribute("import.righe_scartate", righeErrore);
+            metriche.righe(MetricheImport.ESITO_OK, righeOk);
+            metriche.righe(MetricheImport.ESITO_SCARTATA, righeErrore);
+            metriche.fileElaborato(MetricheImport.ESITO_OK);
+            metriche.ferma(cronometro, MetricheImport.ESITO_OK);
+
             // Andato tutto bene: cancelliamo il file temporaneo
             if (filePathToDelete != null) {
                 Files.deleteIfExists(Paths.get(filePathToDelete));
@@ -105,6 +129,13 @@ public class ImportConsumer {
 
         } catch (Exception e) {
             LOG.errorf(e, "Errore fatale nell'elaborazione del messaggio di import. DB Error? %b", isDbOrTxError);
+
+            // Le righe inserite finora non le contiamo: la transazione sta per essere
+            // annullata, quindi a database non ne resta nessuna e un contatore che le
+            // includesse racconterebbe di lavoro mai fatto.
+            metriche.fileElaborato(MetricheImport.ESITO_ERRORE);
+            metriche.ferma(cronometro, MetricheImport.ESITO_ERRORE);
+            Span.current().recordException(e);
 
             // Se il problema non e' il database (es. file rovinato) il file non serve
             // piu' a niente: lo cancelliamo per non riempire il disco.
