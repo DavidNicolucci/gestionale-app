@@ -4,6 +4,30 @@
   background-color: #f4f5f7;
   /* Riferimento per lo spinner in absolute. */
   position: relative;
+
+  /* Stesso accento dell'elenco: la sezione resta riconoscibile anche qui. */
+  --accento: var(--accento-clienti);
+  --mat-sys-primary: var(--accento);
+}
+
+/* Come nell'elenco: la barra d'accento e' la firma della sezione. */
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  &::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 5px;
+    height: 1em;
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      var(--accento),
+      color-mix(in srgb, var(--accento) 55%, #fff)
+    );
+  }
 }
 
 .page {

@@ -38,3 +38,16 @@ body {
   height: 100%;
 }
 /* You can add global styles to this file, and also import other style files */
+
+/*
+ * Accento di ogni sezione. La home lo usa sulle card, le pagine della sezione lo
+ * richiamano su tabella, filtri e pulsanti: aprendo "Clienti" il colore della card
+ * si ritrova nella pagina. Unico posto in cui vivono questi esadecimali:
+ * `DashboardCardColor` punta qui invece di ripeterli.
+ */
+:root {
+  --accento-clienti: #6366f1;
+  --accento-dipendenti: #10b981;
+  --accento-siti: #f59e0b;
+  --accento-timesheet: #0ea5e9;
+}

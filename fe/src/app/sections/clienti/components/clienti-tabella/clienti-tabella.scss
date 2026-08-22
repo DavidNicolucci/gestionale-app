@@ -1,23 +1,47 @@
 :host {
   display: block;
 
-  /* I grigi della tabella stanno tutti qui: righe, bordi ed evidenziazioni si
-     toccano da un punto solo, e restano coerenti fra loro. */
-  --bordo: color-mix(in srgb, var(--mat-sys-outline-variant) 55%, transparent);
-  --intestazione: color-mix(in srgb, var(--mat-sys-on-surface) 3%, #fff);
-  --riga-evidenziata: color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent);
+  /* Accento della sezione, ereditato dalla pagina che ospita la tabella. Il
+     fallback vale se un domani la tabella finisce dove nessuno lo definisce. */
+  --tinta: var(--accento, #6366f1);
+
+  /* Bordi, intestazione ed evidenziazioni nascono tutti dall'accento, ma cosi'
+     diluito da restare un grigio: la tabella prende la temperatura della sezione
+     senza diventare una superficie colorata. Si toccano da un punto solo. */
+  --bordo: color-mix(in srgb, var(--tinta) 20%, #e3e6ec);
+  --intestazione: color-mix(in srgb, var(--tinta) 6%, #fff);
+  --riga-evidenziata: color-mix(in srgb, var(--tinta) 5%, transparent);
 }
 
 /* Tabella e paginatore stanno nello stesso riquadro: gli angoli tondi, il bordo e
    l'ombra li tiene il contenitore, così il paginatore non sembra una scheda staccata. */
 .riquadro {
+  position: relative;
   background: #fff;
   border: 1px solid var(--bordo);
   border-radius: 14px;
-  /* Taglia gli angoli della prima e dell'ultima riga, che sono quadrati. */
+  /* Taglia gli angoli della prima e dell'ultima riga, che sono quadrati, e il
+     filo d'accento in cima. */
   overflow: hidden;
-  /* Ombra appena accennata: alza la scheda dallo sfondo senza incorniciarla. */
-  box-shadow: 0 1px 2px rgb(16 24 40 / 4%), 0 1px 3px rgb(16 24 40 / 6%);
+  /* Ombra appena accennata, con la diffusa tinta d'accento invece che nera:
+     alza la scheda dallo sfondo e ripete il colore senza incorniciarla. */
+  box-shadow:
+    0 1px 2px rgb(16 24 40 / 4%),
+    0 8px 24px color-mix(in srgb, var(--tinta) 13%, transparent);
+
+  /* Il segno piu' esplicito della pagina: la stessa barra d'accento della card in
+     home, appoggiata sul lato lungo della tabella. Tre pixel, niente di piu'. */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: linear-gradient(
+      90deg,
+      var(--tinta),
+      color-mix(in srgb, var(--tinta) 30%, #fff)
+    );
+  }
 }
 
 .scorrevole {
@@ -42,7 +66,8 @@
 .tabella th.mat-mdc-header-cell {
   background: var(--intestazione);
   border-bottom-color: var(--bordo);
-  color: var(--mat-sys-on-surface-variant);
+  /* Non viola pieno: quel tanto di accento che basta a non farlo leggere grigio. */
+  color: color-mix(in srgb, var(--tinta) 50%, var(--mat-sys-on-surface-variant));
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.08em;

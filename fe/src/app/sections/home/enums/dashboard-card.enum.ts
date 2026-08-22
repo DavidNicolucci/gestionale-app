@@ -20,12 +20,16 @@ export enum DashboardCardIcon {
   TIMESHEET = 'schedule',
 }
 
-/** Colore d'accento della card, iniettato nella custom property `--card-accent`. */
+/**
+ * Colore d'accento della card, iniettato nella custom property `--card-accent`.
+ * Rimanda alle variabili di `styles.scss`: lo stesso accento serve anche alle pagine
+ * della sezione, e un esadecimale ripetuto in due posti prima o poi si scolla.
+ */
 export enum DashboardCardColor {
-  CLIENTI = '#6366f1',
-  DIPENDENTI = '#10b981',
-  SITI = '#f59e0b',
-  TIMESHEET = '#0ea5e9',
+  CLIENTI = 'var(--accento-clienti)',
+  DIPENDENTI = 'var(--accento-dipendenti)',
+  SITI = 'var(--accento-siti)',
+  TIMESHEET = 'var(--accento-timesheet)',
 }
 
 /** Etichette delle azioni rapide mostrate in fondo alla card. */

@@ -4,6 +4,35 @@
   background-color: #f4f5f7;
   /* Riferimento per lo spinner in absolute. */
   position: relative;
+
+  /* Accento della sezione, lo stesso della card in home. Sta sull'host perche'
+     le custom property si ereditano: tabella e filtri lo leggono da qui. */
+  --accento: var(--accento-clienti);
+
+  /* I componenti Material della pagina (pulsante pieno, focus dei campi, spinner)
+     seguono l'accento invece del blu di default del tema. */
+  --mat-sys-primary: var(--accento);
+}
+
+/* Filo d'accento a sinistra del titolo: e' la stessa barra che la card ha in home,
+   ed e' il segno che dice "sei in Clienti" senza colorare superfici. */
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  &::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 5px;
+    height: 1em;
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      var(--accento),
+      color-mix(in srgb, var(--accento) 55%, #fff)
+    );
+  }
 }
 
 /*
