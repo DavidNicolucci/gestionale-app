@@ -26,4 +26,12 @@ export class ClientApiService {
     const post$ = this.http.post<ClienteModel>('/api/clienti', cliente);
     return plainToInstance(ClienteModel, await firstValueFrom(post$));
   }
+
+  /**
+   * Elimina un cliente. Il backend risponde 204 senza corpo, quindi non c'è niente
+   * da restituire: è andata bene se la Promise non rifiuta.
+   */
+  async elimina(id: number): Promise<void> {
+    await firstValueFrom(this.http.delete<void>(`/api/clienti/${id}`));
+  }
 }

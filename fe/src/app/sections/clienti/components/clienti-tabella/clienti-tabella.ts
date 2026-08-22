@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
+import { MatIconButton } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorIntl, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { ClienteModel } from '../../interfaces/cliente.model';
@@ -13,7 +14,7 @@ import { paginatoreItaliano } from '../../../../shared/services/paginatore-itali
 /** Tabella dei clienti trovati: riceve le righe già pronte dal componente pagina. */
 @Component({
   selector: 'app-clienti-tabella',
-  imports: [MatIcon, MatTableModule, MatPaginatorModule],
+  imports: [MatIcon, MatIconButton, MatTableModule, MatPaginatorModule],
   templateUrl: './clienti-tabella.html',
   styleUrl: './clienti-tabella.scss',
   standalone: true,
@@ -32,7 +33,13 @@ export class ClientiTabella {
   /** La pagina la sceglie l'utente qui, ma a chiederla al backend è il componente pagina. */
   readonly paginaChange = output<PaginazioneModel>();
 
-  protected readonly colonne = ['ragioneSociale', 'partitaIva', 'indirizzo'];
+  /**
+   * Solo la richiesta: la tabella non chiede conferma e non chiama il backend.
+   * Se ne occupa il componente pagina, che è anche l'unico a poter ricaricare le righe.
+   */
+  readonly elimina = output<ClienteModel>();
+
+  protected readonly colonne = ['ragioneSociale', 'partitaIva', 'indirizzo', 'azioni'];
   protected readonly opzioniRighePerPagina = OPZIONI_RIGHE_PER_PAGINA;
 
   /**

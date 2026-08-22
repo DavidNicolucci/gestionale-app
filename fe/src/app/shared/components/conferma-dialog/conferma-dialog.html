@@ -1,0 +1,14 @@
+<h2 mat-dialog-title>{{ dati.titolo }}</h2>
+
+@if (dati.messaggio) {
+  <mat-dialog-content>
+    <p class="messaggio">{{ dati.messaggio }}</p>
+  </mat-dialog-content>
+}
+
+<mat-dialog-actions class="pulsanti">
+  <!-- "Annulla" è il primo del DOM, quindi è lui a prendere il focus all'apertura:
+       un invio di troppo chiude la finestra invece di eseguire l'azione. -->
+  <button mat-button type="button" [mat-dialog-close]="false">{{ etichettaAnnulla }}</button>
+  <button mat-flat-button type="button" [mat-dialog-close]="true">{{ etichettaConferma }}</button>
+</mat-dialog-actions>

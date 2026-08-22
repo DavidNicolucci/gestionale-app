@@ -1,15 +1,35 @@
-import {computed, inject, Injectable, signal} from '@angular/core';
-import {takeUntilDestroyed, toObservable} from '@angular/core/rxjs-interop';
-import {catchError, debounceTime, distinctUntilChanged, from, map, of, switchMap, tap} from 'rxjs';
-import {ClientApiService} from './client-api.service';
-import {ClienteModel} from '../interfaces/cliente.model';
-import {ClienteRicercaRequestModel} from '../interfaces/cliente-ricerca-request.model';
-import {ClientiFiltriModel, FILTRI_CLIENTI_VUOTI} from '../interfaces/clienti-filtri.model';
-import {PaginaResponseModel} from '../../../shared/interfaces/pagina-response.model';
-import {PAGINAZIONE_INIZIALE, PaginazioneModel} from '../../../shared/interfaces/paginazione.model';
+import { computed, inject, Injectable, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import {
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  from,
+  map,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
+import { ClientApiService } from './client-api.service';
+import { ClienteModel } from '../interfaces/cliente.model';
+import { ClienteRicercaRequestModel } from '../interfaces/cliente-ricerca-request.model';
+import { ClientiFiltriModel, FILTRI_CLIENTI_VUOTI } from '../interfaces/clienti-filtri.model';
+import { PaginaResponseModel } from '../../../shared/interfaces/pagina-response.model';
+import {
+  PAGINAZIONE_INIZIALE,
+  PaginazioneModel,
+} from '../../../shared/interfaces/paginazione.model';
 
 /** Attesa prima di interrogare il backend, così non parte una chiamata per ogni tasto. */
 const DEBOUNCE_MS = 300;
+
+/** Testi degli errori di eliminazione: li scrive e li legge solo questo service. */
+const MESSAGGI_ELIMINAZIONE = {
+  NON_AUTORIZZATO: 'Non hai i permessi per eliminare un cliente',
+  NON_TROVATO: 'Il cliente è già stato eliminato',
+  GENERICO: 'Eliminazione non riuscita, riprova',
+} as const;
 
 /** Risposta di ripiego quando non c'è niente da chiedere o la chiamata fallisce. */
 const PAGINA_VUOTA: PaginaResponseModel<ClienteModel> = {
@@ -57,6 +77,15 @@ export class ClientiQueryService {
   // Parte a true: la prima ricerca viene lanciata dal costruttore, e senza questo
   // la tabella mostrerebbe "Nessun cliente trovato" per il tempo della chiamata.
   private readonly _loadingTabella = signal(true);
+  /** Un'eliminazione in corso: accende lo spinner come le ricerche. */
+  private readonly _inEliminazione = signal(false);
+  /**
+   * Non finisce nella richiesta: serve solo a far ripartire la ricerca della
+   * tabella a parità di filtri e pagina. Dopo un'eliminazione le righe sono
+   * cambiate ma la domanda da fare al backend è identica, e senza questo
+   * `richiestaTabella` non ricalcolerebbe.
+   */
+  private readonly revisione = signal(0);
   /** Totale trovato dai filtri: senza questo il paginatore non sa quante pagine ci sono. */
   private readonly _totaleElementi = signal(0);
   /** Pagina e righe scelte nel paginatore. Si parte da 0, come il backend. */
@@ -85,19 +114,40 @@ export class ClientiQueryService {
     // pagina corrente se ne chiederebbe una che nel nuovo risultato può non esistere,
     // e la tabella uscirebbe vuota pur essendoci righe.
     this.tornaAllaPrimaPagina();
-    this.filtriApplicati.set({...this._filtri()});
+    this.filtriApplicati.set({ ...this._filtri() });
   }
 
   /** Svuota i filtri: la tabella non sparisce, torna a mostrare tutti i clienti. */
   public rimuovi(): void {
     this._filtri.set(FILTRI_CLIENTI_VUOTI);
-    this.filtriApplicati.set({...FILTRI_CLIENTI_VUOTI});
+    this.filtriApplicati.set({ ...FILTRI_CLIENTI_VUOTI });
     this.tornaAllaPrimaPagina();
   }
 
   /** Cambio pagina o di righe per pagina: i filtri restano quelli già applicati. */
   public cambiaPagina(paginazione: PaginazioneModel): void {
     this.paginazione.set(paginazione);
+  }
+
+  /**
+   * Elimina un cliente e ricarica la tabella. La conferma è già stata data: qui
+   * si esegue e basta. L'esito torna come booleano per chi volesse avvisare
+   * l'utente; l'errore, se c'è, è già in `errorMessage`.
+   */
+  public async elimina(cliente: ClienteModel): Promise<boolean> {
+    this._inEliminazione.set(true);
+    this._errorMessage.set(null);
+
+    try {
+      await this.clientiApi.elimina(cliente.id);
+      this.ricaricaDopoEliminazione();
+      return true;
+    } catch (errore) {
+      this._errorMessage.set(this.messaggioEliminazione(errore));
+      return false;
+    } finally {
+      this._inEliminazione.set(false);
+    }
   }
 
   private leggiNumeroDiPagina(): number {
@@ -109,7 +159,7 @@ export class ClientiQueryService {
   }
 
   private calcolaInCaricamento(): boolean {
-    return this._loading() || this._loadingTabella();
+    return this._loading() || this._loadingTabella() || this._inEliminazione();
   }
 
   private calcolaOpzioniRagioneSociale(): string[] {
@@ -127,6 +177,10 @@ export class ClientiQueryService {
    * Con i filtri vuoti i campi non vengono inviati e il backend non filtra nulla.
    */
   private componiRichiestaTabella(): ClienteRicercaRequestModel {
+    // Letta e scartata: è la dipendenza che permette di rifare la stessa ricerca
+    // dopo un'eliminazione. Vedi `revisione`.
+    this.revisione();
+
     return {
       ...this.componiRichiesta(this.filtriApplicati()),
       ...this.paginazione(),
@@ -215,11 +269,47 @@ export class ClientiQueryService {
     };
   }
 
+  /**
+   * Se la riga eliminata era l'ultima della pagina si torna indietro di una:
+   * restando dov'eravamo il backend risponderebbe con una pagina che non esiste
+   * più e la tabella uscirebbe vuota pur essendoci clienti. Il cambio pagina
+   * ricarica da solo, quindi lì la revisione non serve.
+   */
+  private ricaricaDopoEliminazione(): void {
+    const eraUltimaDellaPagina = this._clientiTabella().length === 1;
+
+    if (eraUltimaDellaPagina && this.leggiNumeroDiPagina() > 0) {
+      this.paginazione.update((paginazione) => ({
+        ...paginazione,
+        numeroPagina: paginazione.numeroPagina - 1,
+      }));
+      return;
+    }
+
+    this.revisione.update((revisione) => revisione + 1);
+  }
+
+  private messaggioEliminazione(errore: unknown): string {
+    if (!(errore instanceof HttpErrorResponse)) {
+      return MESSAGGI_ELIMINAZIONE.GENERICO;
+    }
+
+    switch (errore.status) {
+      case 401:
+      case 403:
+        return MESSAGGI_ELIMINAZIONE.NON_AUTORIZZATO;
+      case 404:
+        return MESSAGGI_ELIMINAZIONE.NON_TROVATO;
+      default:
+        return MESSAGGI_ELIMINAZIONE.GENERICO;
+    }
+  }
+
   private distinti(valori: string[]): string[] {
     return [...new Set(valori.filter((valore) => !!valore))];
   }
 
   private tornaAllaPrimaPagina(): void {
-    this.paginazione.update((paginazione) => ({...paginazione, numeroPagina: 0}));
+    this.paginazione.update((paginazione) => ({ ...paginazione, numeroPagina: 0 }));
   }
 }

@@ -36,11 +36,7 @@
     position: absolute;
     inset: 0 0 auto;
     height: 3px;
-    background: linear-gradient(
-      90deg,
-      var(--tinta),
-      color-mix(in srgb, var(--tinta) 30%, #fff)
-    );
+    background: linear-gradient(90deg, var(--tinta), color-mix(in srgb, var(--tinta) 30%, #fff));
   }
 }
 
@@ -101,6 +97,31 @@
   /* Il bordo dell'ultima riga sarebbe doppio con quello del paginatore. */
   &:last-of-type td.mat-mdc-cell {
     border-bottom: none;
+  }
+}
+
+/* Larghezza fissa invece che stretta sul contenuto: stringendola sul cestino la
+   colonna si appiccicava al bordo destro e le azioni sembravano fuori dalla
+   tabella. Così l'indirizzo cede una fascia sua, e dentro quella fascia testo e
+   icona stanno al centro. C'è anche posto per una seconda azione senza rifare i
+   conti alle altre colonne. */
+.tabella th.mat-column-azioni,
+.tabella td.mat-column-azioni {
+  width: 10rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Grigia a riposo: sono dieci cestini in colonna, se fossero rossi la tabella
+   sembrerebbe un elenco di errori. Il rosso arriva solo quando si punta la riga
+   che si sta per eliminare. */
+.elimina {
+  color: var(--mat-sys-outline);
+  transition: color 120ms ease;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--mat-sys-error);
   }
 }
 
