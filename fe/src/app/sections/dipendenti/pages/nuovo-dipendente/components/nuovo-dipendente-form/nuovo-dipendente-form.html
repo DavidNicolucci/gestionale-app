@@ -1,0 +1,176 @@
+<!-- `novalidate`: i controlli sono quelli del form Angular, non quelli del browser. -->
+<form class="form" novalidate (submit)="onSubmit($event)">
+  @let controls = form().controls;
+
+  <!-- Anagrafica: chi è la persona. -->
+  <div class="riga">
+    <mat-form-field class="campo" appearance="outline">
+      <mat-label>Cognome</mat-label>
+
+      <input
+        matInput
+        type="text"
+        autocomplete="family-name"
+        required
+        [formControl]="controls.cognome"
+      />
+
+      @let erroreCognome = messaggioErrore(controls.cognome);
+      @if (erroreCognome) {
+        <mat-error>{{ erroreCognome }}</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field class="campo" appearance="outline">
+      <mat-label>Nome</mat-label>
+
+      <input
+        matInput
+        type="text"
+        autocomplete="given-name"
+        required
+        [formControl]="controls.nome"
+      />
+
+      @let erroreNome = messaggioErrore(controls.nome);
+      @if (erroreNome) {
+        <mat-error>{{ erroreNome }}</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  <div class="riga">
+    <mat-form-field class="campo" appearance="outline">
+      <mat-label>Codice fiscale</mat-label>
+
+      <input
+        matInput
+        type="text"
+        autocomplete="off"
+        required
+        [maxlength]="LUNGHEZZA_CODICE_FISCALE"
+        [formControl]="controls.codiceFiscale"
+      />
+
+      <mat-hint align="end">
+        {{ controls.codiceFiscale.value?.length ?? 0 }}/{{ LUNGHEZZA_CODICE_FISCALE }}
+      </mat-hint>
+
+      @let erroreCodiceFiscale = messaggioErrore(controls.codiceFiscale);
+      @if (erroreCodiceFiscale) {
+        <mat-error>{{ erroreCodiceFiscale }}</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field class="campo" appearance="outline">
+      <mat-label>Data di nascita</mat-label>
+
+      <input
+        matInput
+        required
+        [matDatepicker]="calendarioNascita"
+        [max]="maxDataNascita"
+        [formControl]="controls.dataNascita"
+      />
+
+      <mat-datepicker-toggle matSuffix [for]="calendarioNascita" />
+      <mat-datepicker #calendarioNascita startView="multi-year" />
+
+      @let erroreDataNascita = messaggioErrore(controls.dataNascita);
+      @if (erroreDataNascita) {
+        <mat-error>{{ erroreDataNascita }}</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  <div class="riga">
+    <mat-form-field class="campo" appearance="outline">
+      <mat-label>Nazionalità</mat-label>
+
+      <input
+        matInput
+        type="text"
+        autocomplete="off"
+        required
+        [formControl]="controls.nazionalita"
+      />
+
+      @let erroreNazionalita = messaggioErrore(controls.nazionalita);
+      @if (erroreNazionalita) {
+        <mat-error>{{ erroreNazionalita }}</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  <!-- Contratto: come e da quando lavora. -->
+  <div class="riga">
+    <mat-form-field class="campo" appearance="outline">
+      <mat-label>Tipo di contratto</mat-label>
+
+      <mat-select required [formControl]="controls.tipoContratto">
+        @for (tipo of TIPI_CONTRATTO; track tipo) {
+          <mat-option [value]="tipo">{{ etichettaContratto(tipo) }}</mat-option>
+        }
+      </mat-select>
+
+      @let erroreTipoContratto = messaggioErrore(controls.tipoContratto);
+      @if (erroreTipoContratto) {
+        <mat-error>{{ erroreTipoContratto }}</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field class="campo" appearance="outline">
+      <mat-label>Data di assunzione</mat-label>
+
+      <input
+        matInput
+        required
+        [matDatepicker]="calendarioAssunzione"
+        [formControl]="controls.dataAssunzione"
+      />
+
+      <mat-datepicker-toggle matSuffix [for]="calendarioAssunzione" />
+      <mat-datepicker #calendarioAssunzione />
+
+      @let erroreDataAssunzione = messaggioErrore(controls.dataAssunzione);
+      @if (erroreDataAssunzione) {
+        <mat-error>{{ erroreDataAssunzione }}</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  <!-- Solo per i contratti a termine: un indeterminato non ha una scadenza da
+       compilare, e un campo vuoto e ignorato confonderebbe. -->
+  @if (mostraScadenza()) {
+    <div class="riga">
+      <mat-form-field class="campo" appearance="outline">
+        <mat-label>Data di scadenza</mat-label>
+
+        <input
+          matInput
+          required
+          [matDatepicker]="calendarioScadenza"
+          [formControl]="controls.dataScadenza"
+        />
+
+        <mat-datepicker-toggle matSuffix [for]="calendarioScadenza" />
+        <mat-datepicker #calendarioScadenza />
+
+        @let erroreDataScadenza = messaggioErrore(controls.dataScadenza);
+        @if (erroreDataScadenza) {
+          <mat-error>{{ erroreDataScadenza }}</mat-error>
+        }
+      </mat-form-field>
+    </div>
+  }
+
+  <div class="pulsanti">
+    <button mat-stroked-button type="button" [disabled]="inSalvataggio()" (click)="annulla.emit()">
+      Annulla
+    </button>
+
+    <button mat-flat-button type="submit" [disabled]="isSalvaDisabled() || inSalvataggio()">
+      Salva dipendente
+    </button>
+  </div>
+</form>

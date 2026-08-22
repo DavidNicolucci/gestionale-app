@@ -1,0 +1,29 @@
+<div class="page">
+  <!-- Si torna sempre all'elenco, anche se ci si è arrivati da un'altra pagina. -->
+  <app-go-back class="indietro" [to]="AppRoute.DIPENDENTI" />
+
+  <h1>Nuovo dipendente</h1>
+
+  <!-- Errore di salvataggio: quelli dei singoli campi stanno sotto ai campi. -->
+  @if (query.errorMessage()) {
+    <p class="errore">{{ query.errorMessage() }}</p>
+  }
+
+  <app-nuovo-dipendente-form
+    class="modulo"
+    [form]="form"
+    [inSalvataggio]="query.inSalvataggio()"
+    [isSalvaDisabled]="isSalvaDisabled()"
+    [mostraScadenza]="mostraScadenza()"
+    (salva)="onSalva()"
+    (annulla)="onAnnulla()"
+  />
+</div>
+
+<!-- Copre la pagina mentre si salva: qui, a differenza della ricerca, i click
+     vanno bloccati per non far partire due creazioni. -->
+@if (query.inSalvataggio()) {
+  <div class="caricamento">
+    <mat-spinner diameter="40" />
+  </div>
+}

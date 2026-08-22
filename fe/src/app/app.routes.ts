@@ -28,6 +28,10 @@ export const routes: Routes = [
         loadChildren: () => import('./sections/clienti/routes').then((m) => m.clientiRoutes),
       },
       {
+        path: AppRoute.DIPENDENTI,
+        loadChildren: () => import('./sections/dipendenti/routes').then((m) => m.dipendentiRoutes),
+      },
+      {
         path: AppRoute.TIMESHEET,
         loadChildren: () => import('./sections/timesheet/routes').then((m) => m.timesheetRoutes),
       },

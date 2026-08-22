@@ -11,8 +11,11 @@ export enum AppRoute {
   CLIENTI = 'clienti',
   NUOVO_CLIENTE = `${CLIENTI}/nuovo`,
 
-  // ***** ALTRE SEZIONI *****
+  // ***** DIPENDENTI *****
   DIPENDENTI = 'dipendenti',
+  NUOVO_DIPENDENTE = `${DIPENDENTI}/nuovo`,
+
+  // ***** ALTRE SEZIONI *****
   SITI = 'siti',
   TIMESHEET = 'timesheet',
 }

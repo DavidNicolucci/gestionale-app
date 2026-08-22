@@ -1,1 +1,49 @@
-<p>dipendenti works!</p>
+<div class="page mb-8">
+  <app-go-back class="indietro" [to]="AppRoute.HOME" />
+
+  <h1>Dipendenti</h1>
+
+  <!-- Il pulsante non è un filtro: sta fuori dalla search bar, spinto a destra. -->
+  <div class="barra">
+    <app-dipendenti-search-bar
+      class="ricerca"
+      [filtri]="query.filtri()"
+      [opzioniNome]="query.opzioniNome()"
+      [opzioniCognome]="query.opzioniCognome()"
+      [opzioniCodiceFiscale]="query.opzioniCodiceFiscale()"
+      (filtriChange)="onFiltri($event)"
+      (applica)="onApplica()"
+      (rimuovi)="onRimuovi()"
+    />
+
+    <button class="nuovo" mat-flat-button type="button" (click)="onNuovoDipendente()">
+      <mat-icon>add</mat-icon>
+      Nuovo dipendente
+    </button>
+  </div>
+
+  @if (query.errorMessage()) {
+    <p class="errore">{{ query.errorMessage() }}</p>
+  }
+
+  <!-- La tabella c'è sempre: all'arrivo mostra tutti i dipendenti, e "Applica filtri"
+       la restringe. Mentre si digita cambiano solo le tendine, non le righe. -->
+  <app-dipendenti-tabella
+    class="tabella"
+    [dipendenti]="query.dipendentiTabella()"
+    [loading]="query.loadingTabella()"
+    [totaleElementi]="query.totaleElementi()"
+    [numeroDiPagina]="query.numeroDiPagina()"
+    [righePerPagina]="query.righePerPagina()"
+    (paginaChange)="onPagina($event)"
+    (elimina)="onElimina($event)"
+  />
+</div>
+
+<!-- Spinner unico della pagina: vale sia per la ricerca delle tendine sia per
+     quella della tabella. Non intercetta i click, così si può continuare a scrivere. -->
+@if (query.inCaricamento()) {
+  <div class="caricamento">
+    <mat-spinner diameter="40" />
+  </div>
+}
