@@ -1,0 +1,22 @@
+/* Stessa sobrietà della finestra di conferma: niente accento di sezione, il tema
+   e basta. È una finestra che si apre sopra la pagina, non una parte della pagina. */
+
+.attuale {
+  margin: 0 0 1rem;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.875rem;
+}
+
+/* Il campo occupa tutta la larghezza: da solo in una finestra stretta, un campo
+   a misura del testo sembrerebbe messo lì per sbaglio. */
+.campo {
+  width: 100%;
+}
+
+/* Material li allinea a sinistra: qui stanno a destra, con l'azione che prosegue
+   per ultima. Stesso trattamento della finestra di conferma. */
+.pulsanti {
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem 1.5rem 1.5rem;
+}

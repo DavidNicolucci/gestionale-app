@@ -1,0 +1,33 @@
+<h2 mat-dialog-title>Rinnovare il contratto di {{ dati.nominativo }}?</h2>
+
+<mat-dialog-content>
+  @if (dati.dataScadenzaAttuale) {
+    <p class="attuale">Scadenza attuale: {{ dati.dataScadenzaAttuale | date: 'dd/MM/yyyy' }}</p>
+  }
+
+  <mat-form-field class="campo" appearance="outline">
+    <mat-label>Nuova data di scadenza</mat-label>
+
+    <input
+      matInput
+      required
+      [min]="minimo"
+      [matDatepicker]="calendario"
+      [formControl]="dataScadenza"
+    />
+
+    <mat-datepicker-toggle matSuffix [for]="calendario" />
+    <mat-datepicker #calendario />
+
+    @if (dataScadenza.touched && dataScadenza.invalid) {
+      <mat-error>Indica una data da oggi in avanti</mat-error>
+    }
+  </mat-form-field>
+</mat-dialog-content>
+
+<mat-dialog-actions class="pulsanti">
+  <!-- "Annulla" per primo nel DOM: prende lui il focus all'apertura, così un invio
+       di troppo chiude la finestra invece di rinnovare un contratto. -->
+  <button mat-button type="button" (click)="onAnnulla()">Annulla</button>
+  <button mat-flat-button type="button" (click)="onRinnova()">Rinnova</button>
+</mat-dialog-actions>
