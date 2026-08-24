@@ -4,6 +4,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatAutocomplete, MatAutocompleteTrigger } from '@angular/material/autocomplete';
 import { MatOption } from '@angular/material/core';
+import { MatSlideToggle, MatSlideToggleChange } from '@angular/material/slide-toggle';
 import { DipendentiFiltriModel } from '../../interfaces/dipendenti-filtri.model';
 
 /**
@@ -25,6 +26,7 @@ import { DipendentiFiltriModel } from '../../interfaces/dipendenti-filtri.model'
     MatAutocomplete,
     MatAutocompleteTrigger,
     MatOption,
+    MatSlideToggle,
   ],
   templateUrl: './dipendenti-search-bar.html',
   styleUrl: './dipendenti-search-bar.scss',
@@ -49,7 +51,18 @@ export class DipendentiSearchBar {
   /** Click su "Rimuovi filtri": il padre svuota campi e tabella. */
   readonly rimuovi = output<void>();
 
-  /** Con tutti i campi vuoti non c'è niente da applicare né da rimuovere. */
+  /**
+   * L'interruttore "Mostra eliminati" ha un evento suo e non passa da `filtriChange`:
+   * gli altri campi aspettano "Applica filtri", questo vale subito. Un interruttore
+   * che resta acceso senza che cambi niente a schermo si legge come rotto.
+   */
+  readonly includiEliminatiChange = output<boolean>();
+
+  /**
+   * Con tutti i campi vuoti non c'è niente da applicare né da rimuovere.
+   * L'interruttore non conta: si applica da sé, e "Rimuovi filtri" lo spegne
+   * insieme al resto solo perché fa parte dei filtri.
+   */
   protected readonly haFiltri = computed(() => {
     const filtri = this.filtri();
     return !!(
@@ -68,6 +81,10 @@ export class DipendentiSearchBar {
   /** Voce scelta dalla tendina: vale come se l'utente l'avesse scritta. */
   protected onOpzione(campo: keyof DipendentiFiltriModel, valore: string): void {
     this.filtriChange.emit({ ...this.filtri(), [campo]: valore });
+  }
+
+  protected onIncludiEliminati(evento: MatSlideToggleChange): void {
+    this.includiEliminatiChange.emit(evento.checked);
   }
 
   protected onPulisci(): void {

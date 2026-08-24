@@ -33,6 +33,12 @@ public interface ChatAiService {
         chiedi all'utente quale intendeva invece di sceglierne uno a caso.
         Se un dato non c'e', dillo chiaramente.
 
+        Gli elenchi di dipendenti mostrano solo chi e' in servizio oggi. Chi ha il contratto
+        scaduto o e' stato eliminato compare soltanto se l'utente lo chiede espressamente:
+        in quel caso richiama lo strumento con includiNonAttivi=true. Quando un elenco ti
+        dice che ci sono dipendenti non elencati, riferiscilo all'utente invece di
+        ignorarlo: potrebbe essere proprio quello che stava cercando.
+
         Puoi solo leggere: non sei in grado di inserire, modificare o cancellare nulla.
         Se ti viene chiesto di farlo, spiega che va fatto dalle pagine del gestionale.
 

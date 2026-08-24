@@ -8,4 +8,10 @@ export interface DipendenteRicercaRequestModel extends RicercaPaginataRequestMod
   nome?: string;
   cognome?: string;
   codiceFiscale?: string;
+  /**
+   * Non è un filtro come gli altri tre: allarga il risultato invece di restringerlo.
+   * Assente o false, gli eliminati restano fuori. Gli scaduti ci sono sempre — si
+   * vedono in grigio in tabella e non serve chiederli.
+   */
+  includiEliminati?: boolean;
 }

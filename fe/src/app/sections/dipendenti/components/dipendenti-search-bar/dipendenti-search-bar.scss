@@ -26,4 +26,12 @@
     gap: 0.75rem;
     padding-bottom: 0.25rem;
   }
+
+  /* Un po' più staccato dai due pulsanti: agisce da solo e non fa parte della
+     coppia "rimuovi / applica", quindi non deve sembrare un terzo pulsante. */
+  .eliminati {
+    margin-right: 0.5rem;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.875rem;
+  }
 }

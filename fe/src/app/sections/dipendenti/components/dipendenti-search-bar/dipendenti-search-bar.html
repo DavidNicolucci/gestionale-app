@@ -97,6 +97,16 @@
   </mat-form-field>
 
   <div class="pulsanti">
+    <!-- Non è un filtro come gli altri: agisce da solo, senza "Applica filtri".
+         Sta comunque qui perché è un modo di restringere o allargare l'elenco. -->
+    <mat-slide-toggle
+      class="eliminati"
+      [checked]="filtri().includiEliminati"
+      (change)="onIncludiEliminati($event)"
+    >
+      Mostra eliminati
+    </mat-slide-toggle>
+
     <button mat-stroked-button type="button" [disabled]="!haFiltri()" (click)="rimuovi.emit()">
       Rimuovi filtri
     </button>

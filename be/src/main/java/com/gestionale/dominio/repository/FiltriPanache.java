@@ -50,6 +50,26 @@ public final class FiltriPanache {
         return this;
     }
 
+    // Aggiunge una condizione gia' scritta, per i casi che gli altri metodi non coprono:
+    // un OR fra piu' campi, un confronto fra date, un IS NULL.
+    //
+    // ATTENZIONE: il frammento finisce nella query cosi' com'e'. Lo deve scrivere il
+    // repository a mano, come per i nomi dei campi: qui dentro non deve mai arrivare
+    // niente che venga dal client. I valori si passano con parametro(), mai concatenati.
+    //
+    // Il frammento va fra parentesi: senza, un "a or b" attaccato con AND si leggerebbe
+    // "... and a or b", e l'OR farebbe saltare tutti i filtri messi prima.
+    public FiltriPanache condizione(String frammento) {
+        where.append(" and (").append(frammento).append(")");
+        return this;
+    }
+
+    // Il valore per un :segnaposto usato dentro condizione().
+    public FiltriPanache parametro(String nome, Object valore) {
+        params.and(nome, valore);
+        return this;
+    }
+
     public String where() {
         return where.toString();
     }

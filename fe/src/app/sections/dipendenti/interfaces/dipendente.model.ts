@@ -1,3 +1,5 @@
+import { StatoDipendente } from '../enums/stato-dipendente.enum';
+
 /** Dipendente restituito dal backend (`DipendenteResponse`). */
 export class DipendenteModel {
   id!: number;
@@ -11,4 +13,10 @@ export class DipendenteModel {
   dataAssunzione!: string;
   /** Vuota quando il contratto è a tempo indeterminato: non scade. */
   dataScadenza?: string;
+  /**
+   * Calcolato dal backend al momento della risposta: dipende da che giorno è oggi.
+   * Non ricavarlo da `dataScadenza` qui — vale la stessa regola che decide chi si
+   * può usare, e deve esistere in un posto solo.
+   */
+  stato!: StatoDipendente;
 }

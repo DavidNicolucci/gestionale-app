@@ -5,6 +5,12 @@ export interface DipendentiFiltriModel {
   nome: string;
   cognome: string;
   codiceFiscale: string;
+  /**
+   * Interruttore "Mostra eliminati". A differenza degli altri campi non aspetta
+   * "Applica filtri": un interruttore che resta acceso senza che cambi niente si
+   * legge come rotto. La pagina lo applica appena viene mosso.
+   */
+  includiEliminati: boolean;
 }
 
 export const FILTRI_DIPENDENTI_VUOTI: DipendentiFiltriModel = {
@@ -12,4 +18,5 @@ export const FILTRI_DIPENDENTI_VUOTI: DipendentiFiltriModel = {
   nome: '',
   cognome: '',
   codiceFiscale: '',
+  includiEliminati: false,
 };

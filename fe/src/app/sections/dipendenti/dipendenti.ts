@@ -8,7 +8,11 @@ import { DipendentiTabella } from './components/dipendenti-tabella/dipendenti-ta
 import { DipendenteModel } from './interfaces/dipendente.model';
 import { DipendentiFiltriModel } from './interfaces/dipendenti-filtri.model';
 import { DipendentiQueryService } from './services/dipendenti-query.service';
-import { CONFERMA_ELIMINAZIONE_DIPENDENTE } from './constants/messaggi-dipendenti.constant';
+import { RinnovoDialogService } from './services/rinnovo-dialog.service';
+import {
+  CONFERMA_ELIMINAZIONE_DIPENDENTE,
+  CONFERMA_RIPRISTINO_DIPENDENTE,
+} from './constants/messaggi-dipendenti.constant';
 import { PaginazioneModel } from '../../shared/interfaces/paginazione.model';
 import { AppRoute } from '../../shared/enums/app-route.enum';
 import { GoBack } from '../../shared/components/go-back/go-back';
@@ -33,6 +37,7 @@ export class Dipendenti {
 
   private readonly router = inject(Router);
   private readonly conferma = inject(ConfermaService);
+  private readonly rinnovoDialog = inject(RinnovoDialogService);
 
   /** Apre la pagina di creazione. */
   protected onNuovoDipendente(): void {
@@ -73,5 +78,45 @@ export class Dipendenti {
     }
 
     await this.query.elimina(dipendente);
+  }
+
+  /**
+   * Anche il ripristino passa da una conferma: rimette una persona negli elenchi e
+   * la rende di nuovo usabile, non è un click da fare per sbaglio.
+   */
+  protected async onRipristina(dipendente: DipendenteModel): Promise<void> {
+    const nominativo = `${dipendente.cognome} ${dipendente.nome}`;
+
+    const confermato = await this.conferma.chiedi({
+      titolo: CONFERMA_RIPRISTINO_DIPENDENTE.TITOLO(nominativo),
+      messaggio: CONFERMA_RIPRISTINO_DIPENDENTE.MESSAGGIO,
+      conferma: CONFERMA_RIPRISTINO_DIPENDENTE.CONFERMA,
+    });
+
+    if (!confermato) {
+      return;
+    }
+
+    await this.query.ripristina(dipendente);
+  }
+
+  /**
+   * Il rinnovo non chiede conferma ma un dato: la finestra domanda la nuova
+   * scadenza e torna vuota se l'utente si tira indietro. Chiedere prima "sei
+   * sicuro?" e poi la data sarebbero due finestre per una cosa sola.
+   */
+  protected async onRinnova(dipendente: DipendenteModel): Promise<void> {
+    const dataScadenza = await this.rinnovoDialog.chiedi(dipendente);
+
+    if (!dataScadenza) {
+      return;
+    }
+
+    await this.query.rinnova(dipendente, dataScadenza);
+  }
+
+  /** L'interruttore "Mostra eliminati": si applica da solo, senza "Applica filtri". */
+  protected onIncludiEliminati(includiEliminati: boolean): void {
+    this.query.impostaIncludiEliminati(includiEliminati);
   }
 }

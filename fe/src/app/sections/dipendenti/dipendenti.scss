@@ -81,6 +81,29 @@ h1 {
   color: var(--mat-sys-error);
 }
 
+/* Avviso, non errore: dice che c'è qualcosa da fare presto, non che qualcosa è
+   andato storto. Ambra e non rosso, e con uno sfondo tenue invece del solo testo
+   colorato, perché deve farsi notare senza allarmare. Stessa tinta della pastiglia
+   "In scadenza" in tabella: è lo stesso fatto detto in due posti. */
+.avviso {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid color-mix(in srgb, #b45309 25%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, #b45309 7%, transparent);
+  color: #b45309;
+  font-size: 0.875rem;
+
+  .icona {
+    width: 1.125rem;
+    height: 1.125rem;
+    font-size: 1.125rem;
+  }
+}
+
 /* Allineata a sinistra sopra al contenuto della pagina. */
 .indietro {
   display: block;

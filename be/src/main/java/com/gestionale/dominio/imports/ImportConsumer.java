@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gestionale.dominio.model.entity.Dipendente;
 import com.gestionale.dominio.model.entity.Sito;
 import com.gestionale.dominio.model.entity.Timesheet;
+import com.gestionale.dominio.model.enums.FiltroStato;
 import com.gestionale.dominio.observability.MetricheImport;
 import com.gestionale.dominio.repository.DipendenteRepository;
 import com.gestionale.dominio.repository.SitoRepository;
@@ -81,12 +82,32 @@ public class ImportConsumer {
 
                         // Dipendente e sito devono gia' esistere: se non li troviamo
                         // e' un errore nei dati del file, saltiamo la riga e andiamo avanti.
-                        Optional<Dipendente> dip = dipendenteRepo.perCodiceFiscale(cf);
+                        //
+                        // Cerchiamo il dipendente fra TUTTI, eliminati compresi: se lo
+                        // escludessimo qui, una riga intestata a un eliminato darebbe
+                        // "non trovato", e chi deve correggere il file andrebbe a caccia
+                        // di un codice fiscale sbagliato che sbagliato non e'.
+                        Optional<Dipendente> dip =
+                                dipendenteRepo.perCodiceFiscale(cf, FiltroStato.TUTTI);
                         Optional<Sito> sito = sitoRepo.perNome(nomeSito);
 
                         if (dip.isEmpty() || sito.isEmpty()) {
                             LOG.warnf("Riga %d ignorata: dipendente o sito non trovato (cf=%s, sito=%s)",
                                     i, cf, nomeSito);
+                            righeErrore++;
+                            continue;
+                        }
+
+                        // Le ore si possono consuntivare solo su un contratto che copriva
+                        // quel giorno. Il confronto e' con la data della riga, non con
+                        // oggi: caricare a novembre il foglio di ottobre e' normale, e un
+                        // contratto finito il 31 ottobre quelle ore le copriva.
+                        //
+                        // Riga saltata e non eccezione: un file da 500 righe non deve
+                        // finire in coda di scarto per una riga intestata male.
+                        if (!dip.get().sottoContrattoIl(data)) {
+                            LOG.warnf("Riga %d ignorata: %s non era sotto contratto il %s (cf=%s)",
+                                    i, nominativo(dip.get()), data, cf);
                             righeErrore++;
                             continue;
                         }
@@ -164,6 +185,12 @@ public class ImportConsumer {
             return true;
         }
         return isDatabaseOrTransactionException(e.getCause());
+    }
+
+    // Nel log mettiamo il nome e non solo il codice fiscale: chi legge l'esito
+    // dell'import deve capire chi e' senza andare a cercarlo in anagrafica.
+    private String nominativo(Dipendente d) {
+        return d.nome + " " + d.cognome;
     }
 
     // Legge una cella come testo, gestendo la cella vuota

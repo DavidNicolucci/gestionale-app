@@ -14,6 +14,7 @@
       (filtriChange)="onFiltri($event)"
       (applica)="onApplica()"
       (rimuovi)="onRimuovi()"
+      (includiEliminatiChange)="onIncludiEliminati($event)"
     />
 
     <button class="nuovo" mat-flat-button type="button" (click)="onNuovoDipendente()">
@@ -24,6 +25,23 @@
 
   @if (query.errorMessage()) {
     <p class="errore">{{ query.errorMessage() }}</p>
+  }
+
+  <!-- Avviso delle scadenze vicine. Compare solo se ce n'è almeno una: un riquadro
+       che dice "nessun contratto in scadenza" occuperebbe spazio tutti i giorni per
+       non dire niente. La finestra di preavviso la decide il backend, che la manda
+       insieme al conteggio. -->
+  @let scadenze = query.scadenze();
+  @if (scadenze && scadenze.inScadenza > 0) {
+    <p class="avviso">
+      <mat-icon class="icona" aria-hidden="true">schedule</mat-icon>
+      @if (scadenze.inScadenza === 1) {
+        Un contratto scade nei prossimi {{ scadenze.giorniPreavviso }} giorni.
+      } @else {
+        {{ scadenze.inScadenza }} contratti scadono nei prossimi
+        {{ scadenze.giorniPreavviso }} giorni.
+      }
+    </p>
   }
 
   <!-- La tabella c'è sempre: all'arrivo mostra tutti i dipendenti, e "Applica filtri"
@@ -37,6 +55,8 @@
     [righePerPagina]="query.righePerPagina()"
     (paginaChange)="onPagina($event)"
     (elimina)="onElimina($event)"
+    (ripristina)="onRipristina($event)"
+    (rinnova)="onRinnova($event)"
   />
 </div>
 

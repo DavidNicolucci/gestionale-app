@@ -11,6 +11,11 @@
   --bordo: color-mix(in srgb, var(--tinta) 20%, #e3e6ec);
   --intestazione: color-mix(in srgb, var(--tinta) 6%, #fff);
   --riga-evidenziata: color-mix(in srgb, var(--tinta) 5%, transparent);
+
+  /* Ambra della scadenza vicina: è l'unico colore che non nasce dall'accento,
+     perché non deve prendere la temperatura della sezione — deve dire "guarda
+     qui" con lo stesso tono in qualsiasi pagina finisca la tabella. */
+  --avviso: #b45309;
 }
 
 /* Tabella e paginatore stanno nello stesso riquadro: gli angoli tondi, il bordo e
@@ -47,8 +52,8 @@
 .tabella {
   width: 100%;
   /* Sotto questa soglia si scorre invece di stringere le colonne. Più larga di
-     quella dei clienti: qui le colonne sono cinque. */
-  min-width: 880px;
+     quella dei clienti: qui le colonne sono sei. */
+  min-width: 980px;
 
   /* Token di Material: il colore lo dà il riquadro, non la tabella. */
   --mat-table-background-color: transparent;
@@ -124,6 +129,26 @@
   }
 }
 
+/* Ripristino e rinnovo seguono la stessa regola del cestino: grigi finché non li
+   si punta. Al passaggio prendono il colore del loro esito — l'accento della
+   sezione per il ripristino, l'ambra della scadenza per il rinnovo — così si
+   distinguono fra loro senza colorare la tabella a riposo. */
+.ripristina,
+.rinnova {
+  color: var(--mat-sys-outline);
+  transition: color 120ms ease;
+}
+
+.ripristina:hover,
+.ripristina:focus-visible {
+  color: var(--tinta);
+}
+
+.rinnova:hover,
+.rinnova:focus-visible {
+  color: var(--avviso);
+}
+
 /* Una sola colonna in evidenza: il cognome, che è come si cerca una persona.
    Le altre restano tenui, così l'occhio scorre la prima e legge il resto solo
    se serve. */
@@ -149,6 +174,65 @@
 .assente {
   color: var(--mat-sys-outline);
   font-style: italic;
+}
+
+.tabella th.mat-column-stato,
+.tabella td.mat-column-stato {
+  /* Fissa: le quattro etichette hanno lunghezze diverse e senza una larghezza
+     stabile la colonna ballerebbe da una pagina all'altra. */
+  width: 8.5rem;
+  white-space: nowrap;
+}
+
+/* Pastiglia di stato. Il colore è tutto costruito su una sola tinta per stato:
+   testo pieno, sfondo e bordo della stessa tinta ma diluiti, così le quattro
+   pastiglie hanno lo stesso peso visivo e si distinguono solo per colore. */
+.pastiglia {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--pastiglia-tinta) 30%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pastiglia-tinta) 10%, transparent);
+  color: var(--pastiglia-tinta);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+
+/* Attivo è il caso normale e non deve attirare lo sguardo: resta un grigio, che
+   in mezzo agli altri tre si legge come "niente da segnalare". Colorarlo di verde
+   metterebbe in evidenza proprio le righe che non hanno bisogno di attenzione. */
+.pastiglia--attivo {
+  --pastiglia-tinta: var(--mat-sys-outline);
+}
+
+.pastiglia--in-scadenza {
+  --pastiglia-tinta: var(--avviso);
+}
+
+.pastiglia--scaduto {
+  --pastiglia-tinta: var(--mat-sys-error);
+}
+
+/* Eliminato non è un errore, è un'assenza: grigio come "attivo" ma barrato, che
+   è il segno che si legge come "questa riga non conta più". Se fosse rosso come
+   scaduto sembrerebbero due gradi dello stesso problema, e non lo sono. */
+.pastiglia--eliminato {
+  --pastiglia-tinta: var(--mat-sys-outline);
+
+  text-decoration: line-through;
+}
+
+/* Chi non è più utilizzabile resta leggibile ma arretra: sono dati veri, solo
+   non più operativi.
+   Fuori dall'attenuazione restano la pastiglia, che è proprio ciò che spiega
+   perché la riga è sbiadita, e le azioni, che devono restare cliccabili senza
+   sembrare disabilitate. Vanno esclusi con :not() e non riportati a piena
+   opacità dall'interno: opacity apre un contesto di composizione, e un figlio
+   non può disfare quella del genitore. */
+.tabella tr.mat-mdc-row.riga-inattiva td.mat-mdc-cell:not(.mat-column-stato, .mat-column-azioni) {
+  opacity: 0.55;
 }
 
 .paginatore {

@@ -60,6 +60,16 @@ CREATE TABLE dipendente (
 );
 GO
 
+-- Colonna aggiunta dopo la creazione iniziale della tabella: chi ha gia' il database
+-- non lo ricrea da zero, quindi la ALTER deve stare qui e non dentro la CREATE sopra.
+-- COL_LENGTH torna NULL se la colonna non c'e': e' il modo di rendere la ALTER
+-- ripetibile, come OBJECT_ID lo e' per le tabelle.
+-- Cancellazione logica: il dipendente eliminato resta sul database perche' i suoi
+-- timesheet lo referenziano, e le ore gia' consuntivate non devono sparire.
+IF COL_LENGTH('dipendente', 'eliminato') IS NULL
+    ALTER TABLE dipendente ADD eliminato BIT NOT NULL DEFAULT 0;   -- le righe esistenti diventano 0 = non eliminato
+GO
+
 -- ---- Clienti ----
 IF OBJECT_ID('cliente', 'U') IS NULL
 CREATE TABLE cliente (

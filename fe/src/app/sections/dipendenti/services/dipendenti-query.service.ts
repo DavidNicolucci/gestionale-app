@@ -18,6 +18,7 @@ import {
   DipendentiFiltriModel,
   FILTRI_DIPENDENTI_VUOTI,
 } from '../interfaces/dipendenti-filtri.model';
+import { ScadenzeModel } from '../interfaces/scadenze.model';
 import { PaginaResponseModel } from '../../../shared/interfaces/pagina-response.model';
 import {
   PAGINAZIONE_INIZIALE,
@@ -28,15 +29,31 @@ import {
 const DEBOUNCE_MS = 300;
 
 /**
- * Testi degli errori di eliminazione: li scrive e li legge solo questo service.
- * Il 409 qui è il caso concreto: la FK dei timesheet non cancella a cascata,
- * quindi il database rifiuta e il `ThrowableMapper` lo traduce in un conflitto.
+ * Testi degli errori delle tre operazioni di riga: li scrive e li legge solo questo
+ * service. Sono separati perché la stessa risposta HTTP vuol dire cose diverse — un
+ * 409 sull'eliminazione non esiste più (la cancellazione è logica e non ha vincoli
+ * che la blocchino), mentre sul ripristino significa "non era eliminato".
  */
 const MESSAGGI_ELIMINAZIONE = {
   NON_AUTORIZZATO: 'Non hai i permessi per eliminare un dipendente',
-  NON_TROVATO: 'Il dipendente è già stato eliminato',
-  CON_TIMESHEET: 'Il dipendente ha dei timesheet registrati e non può essere eliminato',
+  NON_TROVATO: 'Il dipendente non esiste più',
   GENERICO: 'Eliminazione non riuscita, riprova',
+} as const;
+
+const MESSAGGI_RIPRISTINO = {
+  NON_AUTORIZZATO: 'Non hai i permessi per ripristinare un dipendente',
+  NON_TROVATO: 'Il dipendente non esiste più',
+  NON_ELIMINATO: 'Il dipendente non risulta eliminato: ricarica la pagina',
+  GENERICO: 'Ripristino non riuscito, riprova',
+} as const;
+
+const MESSAGGI_RINNOVO = {
+  NON_AUTORIZZATO: 'Non hai i permessi per rinnovare un contratto',
+  NON_TROVATO: 'Il dipendente non esiste più',
+  NON_RINNOVABILE:
+    'Il contratto non può essere rinnovato: il dipendente è eliminato oppure è a tempo indeterminato',
+  DATA_NON_VALIDA: 'La nuova scadenza non può essere nel passato',
+  GENERICO: 'Rinnovo non riuscito, riprova',
 } as const;
 
 /** Risposta di ripiego quando non c'è niente da chiedere o la chiamata fallisce. */
@@ -67,6 +84,8 @@ export class DipendentiQueryService {
   public readonly righePerPagina = computed(() => this.leggiRighePerPagina());
   /** Una sola attesa a schermo, qualunque operazione sia in corso. */
   public readonly inCaricamento = computed(() => this.calcolaInCaricamento());
+  /** Contratti in scadenza, per l'avviso in cima alla pagina. Null finché non risponde. */
+  public readonly scadenze = computed(() => this._scadenze());
   /** Voci delle tendine: i valori dei dipendenti trovati, senza doppioni. */
   public readonly opzioniNome = computed(() => this.calcolaOpzioniNome());
   public readonly opzioniCognome = computed(() => this.calcolaOpzioniCognome());
@@ -81,8 +100,13 @@ export class DipendentiQueryService {
   // Parte a true: la prima ricerca viene lanciata dal costruttore, e senza questo
   // la tabella mostrerebbe "Nessun dipendente trovato" per il tempo della chiamata.
   private readonly _loadingTabella = signal(true);
-  /** Un'eliminazione in corso: accende lo spinner come le ricerche. */
+  /**
+   * Un'operazione di riga in corso (eliminazione, ripristino, rinnovo): accende lo
+   * spinner come le ricerche. Una sola bandiera per tutte e tre — a schermo l'attesa
+   * è la stessa, e non c'è modo di lanciarne due insieme.
+   */
   private readonly _inEliminazione = signal(false);
+  private readonly _scadenze = signal<ScadenzeModel | null>(null);
   /** Totale trovato dai filtri: senza questo il paginatore non sa quante pagine ci sono. */
   private readonly _totaleElementi = signal(0);
   /** Pagina e righe scelte nel paginatore. Si parte da 0, come il backend. */
@@ -106,6 +130,7 @@ export class DipendentiQueryService {
   constructor() {
     this.osservaTendine();
     this.osservaTabella();
+    void this.caricaScadenze();
   }
 
   public aggiornaFiltri(filtri: DipendentiFiltriModel): void {
@@ -151,6 +176,78 @@ export class DipendentiQueryService {
       return false;
     } finally {
       this._inEliminazione.set(false);
+    }
+  }
+
+  /**
+   * Rimette in anagrafica un eliminato. La riga resta dov'è — la ricerca corrente
+   * ha il filtro "mostra eliminati" acceso, altrimenti quel dipendente non sarebbe
+   * a schermo — quindi basta ricaricare senza toccare la pagina.
+   */
+  public async ripristina(dipendente: DipendenteModel): Promise<boolean> {
+    return this.operazioneDiRiga(
+      () => this.dipendentiApi.ripristina(dipendente.id),
+      (errore) => this.messaggioRipristino(errore),
+    );
+  }
+
+  /** Sposta in avanti la scadenza. La data arriva già in `yyyy-MM-dd` dalla finestra. */
+  public async rinnova(dipendente: DipendenteModel, dataScadenza: string): Promise<boolean> {
+    return this.operazioneDiRiga(
+      () => this.dipendentiApi.rinnova(dipendente.id, { dataScadenza }),
+      (errore) => this.messaggioRinnovo(errore),
+    );
+  }
+
+  /**
+   * Accende e spegne il filtro "Mostra eliminati". Non aspetta "Applica filtri":
+   * aggiorna sia i campi a schermo sia i filtri applicati, così la tabella si
+   * ricarica subito. Si torna alla prima pagina perché il numero di righe cambia,
+   * e la pagina su cui eravamo potrebbe non esistere più nel nuovo risultato.
+   */
+  public impostaIncludiEliminati(includiEliminati: boolean): void {
+    this._filtri.update((filtri) => ({ ...filtri, includiEliminati }));
+    this.filtriApplicati.update((filtri) => ({ ...filtri, includiEliminati }));
+    this.tornaAllaPrimaPagina();
+  }
+
+  /**
+   * Ripristino e rinnovo hanno la stessa struttura: spegni l'errore, accendi
+   * l'attesa, chiama, ricarica. Cambia solo la chiamata e come si traduce l'errore,
+   * quindi arrivano da fuori invece di duplicare due volte lo stesso `try/finally`.
+   */
+  private async operazioneDiRiga(
+    chiamata: () => Promise<unknown>,
+    messaggio: (errore: unknown) => string,
+  ): Promise<boolean> {
+    this._inEliminazione.set(true);
+    this._errorMessage.set(null);
+
+    try {
+      await chiamata();
+      // La riga resta al suo posto: cambia il suo stato, non quante righe ci sono.
+      // Basta rifare la stessa ricerca, senza toccare la pagina corrente.
+      this.revisione.update((revisione) => revisione + 1);
+      void this.caricaScadenze();
+      return true;
+    } catch (errore) {
+      this._errorMessage.set(messaggio(errore));
+      return false;
+    } finally {
+      this._inEliminazione.set(false);
+    }
+  }
+
+  /**
+   * L'avviso delle scadenze. Se la chiamata fallisce l'avviso sparisce e basta: è
+   * un di più, e riempire la pagina di un errore rosso per un contatore mancato
+   * darebbe più fastidio dell'informazione che si perde.
+   */
+  private async caricaScadenze(): Promise<void> {
+    try {
+      this._scadenze.set(await this.dipendentiApi.scadenze());
+    } catch {
+      this._scadenze.set(null);
     }
   }
 
@@ -277,6 +374,10 @@ export class DipendentiQueryService {
       nome: nome || undefined,
       cognome: cognome || undefined,
       codiceFiscale: codiceFiscale || undefined,
+      // Sempre presente, anche a false: non è un filtro che si può omettere, è una
+      // scelta fra due elenchi diversi. E false è quello che il backend fa comunque
+      // di suo, quindi mandarlo non cambia il risultato ma rende la richiesta leggibile.
+      includiEliminati: filtri.includiEliminati,
     };
   }
 
@@ -295,7 +396,13 @@ export class DipendentiQueryService {
    * ricarica da solo, quindi lì la revisione non serve.
    */
   private ricaricaDopoEliminazione(): void {
-    const eraUltimaDellaPagina = this._dipendentiTabella().length === 1;
+    // Un eliminato può essere appena scomparso dalla finestra di preavviso.
+    void this.caricaScadenze();
+
+    // Con "mostra eliminati" acceso la riga non sparisce, cambia solo stato: la
+    // pagina resta valida e non c'è motivo di tornare indietro.
+    const eraUltimaDellaPagina =
+      this._dipendentiTabella().length === 1 && !this.filtriApplicati().includiEliminati;
 
     if (eraUltimaDellaPagina && this.leggiNumeroDiPagina() > 0) {
       this.paginazione.update((paginazione) => ({
@@ -319,10 +426,51 @@ export class DipendentiQueryService {
         return MESSAGGI_ELIMINAZIONE.NON_AUTORIZZATO;
       case 404:
         return MESSAGGI_ELIMINAZIONE.NON_TROVATO;
-      case 409:
-        return MESSAGGI_ELIMINAZIONE.CON_TIMESHEET;
       default:
         return MESSAGGI_ELIMINAZIONE.GENERICO;
+    }
+  }
+
+  private messaggioRipristino(errore: unknown): string {
+    if (!(errore instanceof HttpErrorResponse)) {
+      return MESSAGGI_RIPRISTINO.GENERICO;
+    }
+
+    switch (errore.status) {
+      case 401:
+      case 403:
+        return MESSAGGI_RIPRISTINO.NON_AUTORIZZATO;
+      case 404:
+        return MESSAGGI_RIPRISTINO.NON_TROVATO;
+      // Non era eliminato: qualcun altro l'ha già rimesso a posto, e quello che
+      // vediamo a schermo è vecchio.
+      case 409:
+        return MESSAGGI_RIPRISTINO.NON_ELIMINATO;
+      default:
+        return MESSAGGI_RIPRISTINO.GENERICO;
+    }
+  }
+
+  private messaggioRinnovo(errore: unknown): string {
+    if (!(errore instanceof HttpErrorResponse)) {
+      return MESSAGGI_RINNOVO.GENERICO;
+    }
+
+    switch (errore.status) {
+      case 400:
+        // Validazione del body: l'unico vincolo è che la data non sia passata.
+        return MESSAGGI_RINNOVO.DATA_NON_VALIDA;
+      case 401:
+      case 403:
+        return MESSAGGI_RINNOVO.NON_AUTORIZZATO;
+      case 404:
+        return MESSAGGI_RINNOVO.NON_TROVATO;
+      // Eliminato, oppure contratto a tempo indeterminato: due casi diversi lato
+      // backend, ma da qui la risposta è la stessa — quel contratto non si rinnova.
+      case 409:
+        return MESSAGGI_RINNOVO.NON_RINNOVABILE;
+      default:
+        return MESSAGGI_RINNOVO.GENERICO;
     }
   }
 

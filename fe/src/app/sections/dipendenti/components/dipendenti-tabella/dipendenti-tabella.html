@@ -37,29 +37,80 @@
           </td>
         </ng-container>
 
+        <ng-container matColumnDef="stato">
+          <th mat-header-cell *matHeaderCellDef>Stato</th>
+          <td mat-cell *matCellDef="let dipendente">
+            <span [class]="classePastiglia(dipendente)">{{ etichettaStato(dipendente) }}</span>
+          </td>
+        </ng-container>
+
         <ng-container matColumnDef="azioni">
           <th mat-header-cell *matHeaderCellDef>Azioni</th>
           <td mat-cell *matCellDef="let dipendente">
-            <button
-              class="elimina"
-              mat-icon-button
-              type="button"
-              [attr.aria-label]="'Elimina ' + dipendente.cognome + ' ' + dipendente.nome"
-              (click)="elimina.emit(dipendente)"
-            >
-              <mat-icon>delete_outline</mat-icon>
-            </button>
+            <!-- Le azioni cambiano con lo stato, perché su un dipendente non
+                 utilizzabile l'unica cosa sensata è rimetterlo in servizio.
+                 Il cestino su un eliminato non farebbe niente, e il rinnovo su
+                 un attivo lo faremmo passare dalla modifica. -->
+            @switch (dipendente.stato) {
+              @case (StatoDipendente.ELIMINATO) {
+                <button
+                  class="ripristina"
+                  mat-icon-button
+                  type="button"
+                  matTooltip="Rimetti in anagrafica"
+                  [attr.aria-label]="'Ripristina ' + dipendente.cognome + ' ' + dipendente.nome"
+                  (click)="ripristina.emit(dipendente)"
+                >
+                  <mat-icon>restore_from_trash</mat-icon>
+                </button>
+              }
+              @case (StatoDipendente.SCADUTO) {
+                <button
+                  class="rinnova"
+                  mat-icon-button
+                  type="button"
+                  matTooltip="Rinnova il contratto"
+                  [attr.aria-label]="'Rinnova il contratto di ' + dipendente.cognome + ' ' + dipendente.nome"
+                  (click)="rinnova.emit(dipendente)"
+                >
+                  <mat-icon>event_repeat</mat-icon>
+                </button>
+                <button
+                  class="elimina"
+                  mat-icon-button
+                  type="button"
+                  matTooltip="Elimina"
+                  [attr.aria-label]="'Elimina ' + dipendente.cognome + ' ' + dipendente.nome"
+                  (click)="elimina.emit(dipendente)"
+                >
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              }
+              @default {
+                <button
+                  class="elimina"
+                  mat-icon-button
+                  type="button"
+                  matTooltip="Elimina"
+                  [attr.aria-label]="'Elimina ' + dipendente.cognome + ' ' + dipendente.nome"
+                  (click)="elimina.emit(dipendente)"
+                >
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              }
+            }
           </td>
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="colonne"></tr>
-        <!-- Forma estesa di `*matRowDef`: la scorciatoia obbliga a dichiarare la riga
-             (`let riga; columns: colonne`) anche quando il template non la usa, perché
-             la microsintassi vuole un'espressione prima delle chiavi. Qui la riga non
-             serve, le celle hanno già il loro `matCellDef`. -->
-        <ng-template matRowDef [matRowDefColumns]="colonne">
-          <tr mat-row></tr>
-        </ng-template>
+        <!-- Forma breve di `*matRowDef`: serve la riga (`let riga`) per attenuare
+             chi non è più utilizzabile. Restano dati veri e vanno letti, ma non
+             devono avere lo stesso peso di chi è in servizio. -->
+        <tr
+          mat-row
+          *matRowDef="let riga; columns: colonne"
+          [class.riga-inattiva]="!utilizzabile(riga)"
+        ></tr>
       </table>
     </div>
 
