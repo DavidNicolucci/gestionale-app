@@ -26,6 +26,13 @@
           </td>
         </ng-container>
 
+        <ng-container matColumnDef="dataAssunzione">
+          <th mat-header-cell *matHeaderCellDef>Assunzione</th>
+          <td mat-cell *matCellDef="let dipendente">
+            {{ dipendente.dataAssunzione | date: 'dd/MM/yyyy' }}
+          </td>
+        </ng-container>
+
         <ng-container matColumnDef="dataScadenza">
           <th mat-header-cell *matHeaderCellDef>Scadenza</th>
           <td mat-cell *matCellDef="let dipendente">

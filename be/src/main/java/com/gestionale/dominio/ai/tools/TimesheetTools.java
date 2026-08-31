@@ -6,6 +6,7 @@ import com.gestionale.dominio.model.entity.Sito;
 import com.gestionale.dominio.model.entity.Timesheet;
 import com.gestionale.dominio.repository.ClienteRepository;
 import com.gestionale.dominio.repository.DipendenteRepository;
+import com.gestionale.dominio.repository.OrePeriodo;
 import com.gestionale.dominio.repository.SitoRepository;
 import com.gestionale.dominio.repository.TimesheetRepository;
 import dev.langchain4j.agent.tool.Tool;
@@ -44,6 +45,9 @@ public class TimesheetTools {
             I parametri sono: nome e cognome del dipendente, data di inizio e data di fine
             del periodo, entrambe nel formato AAAA-MM-GG.
             Usalo quando l'utente chiede quante ore ha lavorato una persona in un certo periodo o mese.
+            Le due date che trovi nella risposta sono il primo e l'ultimo giorno in cui la
+            persona ha effettivamente lavorato, non gli estremi del periodo che hai chiesto:
+            riportale come sono, senza sostituirle con l'inizio e la fine del mese.
             """)
     public String oreLavorate(String nomeCompleto, LocalDate dataInizio, LocalDate dataFine) {
         // La ricerca per nome la fa il database, non carichiamo tutti i dipendenti
@@ -56,10 +60,23 @@ public class TimesheetTools {
             return "Nessun dipendente trovato con nome '" + nomeCompleto + "'.";
         }
 
-        BigDecimal totale = timesheet.sommaOrePeriodo(dip.get().id, dataInizio, dataFine);
+        OrePeriodo lavorate = timesheet.oreLavoratePeriodo(dip.get().id, dataInizio, dataFine);
+
+        // Senza righe non esiste un primo e un ultimo giorno da riportare: qui le
+        // uniche date sensate sono quelle chieste, ed e' l'unico caso in cui vanno
+        // ripetute all'utente.
+        if (lavorate.vuoto()) {
+            return "%s non ha ore registrate tra il %s e il %s.".formatted(
+                    nomeCompleto, TestoTools.data(dataInizio), TestoTools.data(dataFine));
+        }
+
+        // Gli estremi sono quelli delle righe trovate, non quelli del periodo chiesto:
+        // a chi domanda "quante ore ad agosto" interessa sapere che ha lavorato dal 24
+        // al 27, e dire "dall'1 al 31" farebbe sembrare vuoto il resto del mese quando
+        // magari la persona era assunta solo da meta' mese.
         return "%s ha lavorato %s ore tra il %s e il %s.".formatted(
-                nomeCompleto, TestoTools.ore(totale),
-                TestoTools.data(dataInizio), TestoTools.data(dataFine));
+                nomeCompleto, TestoTools.ore(lavorate.ore()),
+                TestoTools.data(lavorate.primoGiorno()), TestoTools.data(lavorate.ultimoGiorno()));
     }
 
     @Tool("""

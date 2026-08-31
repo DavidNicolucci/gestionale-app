@@ -62,6 +62,7 @@ export class DipendentiTabella {
     'nome',
     'codiceFiscale',
     'tipoContratto',
+    'dataAssunzione',
     'dataScadenza',
     'stato',
     'azioni',

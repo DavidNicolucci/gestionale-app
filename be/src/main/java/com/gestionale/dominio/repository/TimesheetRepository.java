@@ -25,25 +25,29 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
                 .firstResultOptional();
     }
 
-    // Somma le ore di un dipendente in un periodo. La somma la fa il database:
-    // caricare migliaia di righe in Java per ottenere un solo numero sarebbe uno spreco.
-    public BigDecimal sommaOrePeriodo(Long dipendenteId, LocalDate da, LocalDate a) {
-        BigDecimal somma = getEntityManager()
+    // Ore di un dipendente in un periodo, insieme al primo e all'ultimo giorno in
+    // cui ha lavorato davvero. La somma la fa il database: caricare migliaia di
+    // righe in Java per ottenere un solo numero sarebbe uno spreco.
+    //
+    // SUM, MIN e MAX stanno nella stessa query e non in tre: sono aggregati sulle
+    // stesse righe, e il database le scorre una volta sola.
+    public OrePeriodo oreLavoratePeriodo(Long dipendenteId, LocalDate da, LocalDate a) {
+        // Senza righe nel periodo l'aggregazione torna comunque una riga, con i tre
+        // campi a null: chi chiama se ne accorge da OrePeriodo.vuoto().
+        return getEntityManager()
                 .createQuery("""
-                        SELECT SUM(t.oreLavorate) FROM Timesheet t
+                        SELECT new com.gestionale.dominio.repository.OrePeriodo(
+                            SUM(t.oreLavorate), MIN(t.dataLavoro), MAX(t.dataLavoro))
+                        FROM Timesheet t
                         WHERE t.dipendente.id = ?1 AND t.dataLavoro BETWEEN ?2 AND ?3
-                        """, BigDecimal.class)
+                        """, OrePeriodo.class)
                 .setParameter(1, dipendenteId)
                 .setParameter(2, da)
                 .setParameter(3, a)
                 .getSingleResult();
-
-        // Se non trova righe la somma torna null, non 0: senza questo controllo
-        // chi chiama il metodo si ritroverebbe un NullPointerException.
-        return somma != null ? somma : BigDecimal.ZERO;
     }
 
-    // Ore su un singolo sito. Stessa logica di sommaOrePeriodo: somma il database.
+    // Ore su un singolo sito. Stessa logica di oreLavoratePeriodo: somma il database.
     public BigDecimal sommaOreSito(Long sitoId, LocalDate da, LocalDate a) {
         return sommaOZero("""
                 SELECT SUM(t.oreLavorate) FROM Timesheet t

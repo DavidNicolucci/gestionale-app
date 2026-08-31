@@ -52,8 +52,8 @@
 .tabella {
   width: 100%;
   /* Sotto questa soglia si scorre invece di stringere le colonne. Più larga di
-     quella dei clienti: qui le colonne sono sei. */
-  min-width: 980px;
+     quella dei clienti: qui le colonne sono sette. */
+  min-width: 1080px;
 
   /* Token di Material: il colore lo dà il riquadro, non la tabella. */
   --mat-table-background-color: transparent;
@@ -159,6 +159,7 @@
 
 .tabella td.mat-column-nome,
 .tabella td.mat-column-tipoContratto,
+.tabella td.mat-column-dataAssunzione,
 .tabella td.mat-column-dataScadenza {
   color: var(--mat-sys-on-surface-variant);
 }
