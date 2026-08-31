@@ -3,7 +3,6 @@ package com.gestionale.dominio.repository;
 import com.gestionale.dominio.model.entity.Timesheet;
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -26,42 +25,20 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
     }
 
     // Ore di un dipendente in un periodo, insieme al primo e all'ultimo giorno in
-    // cui ha lavorato davvero. La somma la fa il database: caricare migliaia di
-    // righe in Java per ottenere un solo numero sarebbe uno spreco.
-    //
-    // SUM, MIN e MAX stanno nella stessa query e non in tre: sono aggregati sulle
-    // stesse righe, e il database le scorre una volta sola.
+    // cui ha lavorato davvero.
     public OrePeriodo oreLavoratePeriodo(Long dipendenteId, LocalDate da, LocalDate a) {
-        // Senza righe nel periodo l'aggregazione torna comunque una riga, con i tre
-        // campi a null: chi chiama se ne accorge da OrePeriodo.vuoto().
-        return getEntityManager()
-                .createQuery("""
-                        SELECT new com.gestionale.dominio.repository.OrePeriodo(
-                            SUM(t.oreLavorate), MIN(t.dataLavoro), MAX(t.dataLavoro))
-                        FROM Timesheet t
-                        WHERE t.dipendente.id = ?1 AND t.dataLavoro BETWEEN ?2 AND ?3
-                        """, OrePeriodo.class)
-                .setParameter(1, dipendenteId)
-                .setParameter(2, da)
-                .setParameter(3, a)
-                .getSingleResult();
+        return aggrega("t.dipendente.id = ?1", dipendenteId, da, a);
     }
 
-    // Ore su un singolo sito. Stessa logica di oreLavoratePeriodo: somma il database.
-    public BigDecimal sommaOreSito(Long sitoId, LocalDate da, LocalDate a) {
-        return sommaOZero("""
-                SELECT SUM(t.oreLavorate) FROM Timesheet t
-                WHERE t.sito.id = ?1 AND t.dataLavoro BETWEEN ?2 AND ?3
-                """, sitoId, da, a);
+    // Ore su un singolo sito, con il primo e l'ultimo giorno di attivita' del sito.
+    public OrePeriodo oreSitoPeriodo(Long sitoId, LocalDate da, LocalDate a) {
+        return aggrega("t.sito.id = ?1", sitoId, da, a);
     }
 
     // Ore su tutti i siti di un cliente: il salto sito -> cliente lo fa la query,
     // senza caricare prima l'elenco dei siti.
-    public BigDecimal sommaOreCliente(Long clienteId, LocalDate da, LocalDate a) {
-        return sommaOZero("""
-                SELECT SUM(t.oreLavorate) FROM Timesheet t
-                WHERE t.sito.cliente.id = ?1 AND t.dataLavoro BETWEEN ?2 AND ?3
-                """, clienteId, da, a);
+    public OrePeriodo oreClientePeriodo(Long clienteId, LocalDate da, LocalDate a) {
+        return aggrega("t.sito.cliente.id = ?1", clienteId, da, a);
     }
 
     // Chi ha lavorato su un sito e per quante ore, dal piu' presente al meno.
@@ -118,15 +95,29 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
                 .list();
     }
 
-    private BigDecimal sommaOZero(String jpql, Long id, LocalDate da, LocalDate a) {
-        BigDecimal somma = getEntityManager()
-                .createQuery(jpql, BigDecimal.class)
+    // Le tre domande sulle ore in un periodo - dipendente, sito, cliente - cambiano
+    // solo per a chi si riferiscono le righe, non per cosa se ne ricava: la parte
+    // fissa sta qui una volta sola. Il frammento di WHERE e' scritto nei metodi qui
+    // sopra, non arriva da fuori: nessun dato dell'utente entra nella query.
+    //
+    // La somma la fa il database: caricare migliaia di righe in Java per ottenere
+    // tre valori sarebbe uno spreco. E SUM, MIN e MAX stanno nella stessa query e
+    // non in tre, perche' sono aggregati sulle stesse righe: il database le scorre
+    // una volta sola.
+    private OrePeriodo aggrega(String condizione, Long id, LocalDate da, LocalDate a) {
+        // Senza righe nel periodo l'aggregazione torna comunque una riga, con i tre
+        // campi a null: chi chiama se ne accorge da OrePeriodo.vuoto().
+        return getEntityManager()
+                .createQuery("""
+                        SELECT new com.gestionale.dominio.repository.OrePeriodo(
+                            SUM(t.oreLavorate), MIN(t.dataLavoro), MAX(t.dataLavoro))
+                        FROM Timesheet t
+                        WHERE %s AND t.dataLavoro BETWEEN ?2 AND ?3
+                        """.formatted(condizione), OrePeriodo.class)
                 .setParameter(1, id)
                 .setParameter(2, da)
                 .setParameter(3, a)
                 .getSingleResult();
-
-        return somma != null ? somma : BigDecimal.ZERO;
     }
 
     private List<RiepilogoOre> raggruppa(String jpql, Long id, LocalDate da, LocalDate a) {

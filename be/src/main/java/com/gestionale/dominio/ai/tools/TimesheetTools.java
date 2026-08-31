@@ -13,7 +13,6 @@ import dev.langchain4j.agent.tool.Tool;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -83,6 +82,9 @@ public class TimesheetTools {
             Calcola il totale delle ore lavorate su un sito (cantiere, negozio, sede) in un periodo.
             I parametri sono il nome del sito e le due date nel formato AAAA-MM-GG.
             Usalo per domande come "quante ore sono state fatte sul cantiere di via Roma a luglio".
+            Le due date che trovi nella risposta sono il primo e l'ultimo giorno in cui si e'
+            davvero lavorato sul sito, non gli estremi del periodo che hai chiesto: riportale
+            come sono, senza sostituirle con l'inizio e la fine del mese.
             """)
     public String oreDelSito(String nomeSito, LocalDate dataInizio, LocalDate dataFine) {
         Optional<Sito> sito = siti.perNome(nomeSito);
@@ -92,16 +94,25 @@ public class TimesheetTools {
                     + "'. Prova cercaSiti per trovare il nome esatto.";
         }
 
-        BigDecimal totale = timesheet.sommaOreSito(sito.get().id, dataInizio, dataFine);
+        OrePeriodo lavorate = timesheet.oreSitoPeriodo(sito.get().id, dataInizio, dataFine);
+
+        if (lavorate.vuoto()) {
+            return "Sul sito %s non ci sono ore registrate tra il %s e il %s.".formatted(
+                    sito.get().nome, TestoTools.data(dataInizio), TestoTools.data(dataFine));
+        }
+
         return "Sul sito %s sono state lavorate %s ore tra il %s e il %s.".formatted(
-                sito.get().nome, TestoTools.ore(totale),
-                TestoTools.data(dataInizio), TestoTools.data(dataFine));
+                sito.get().nome, TestoTools.ore(lavorate.ore()),
+                TestoTools.data(lavorate.primoGiorno()), TestoTools.data(lavorate.ultimoGiorno()));
     }
 
     @Tool("""
             Calcola il totale delle ore lavorate per un cliente in un periodo, sommando tutti i suoi siti.
             I parametri sono la ragione sociale del cliente e le due date nel formato AAAA-MM-GG.
             Usalo per domande come "quante ore abbiamo fatto per Acme quest'anno".
+            Le due date che trovi nella risposta sono il primo e l'ultimo giorno in cui si e'
+            davvero lavorato per quel cliente, non gli estremi del periodo che hai chiesto:
+            riportale come sono, senza sostituirle con l'inizio e la fine del mese.
             """)
     public String oreDelCliente(String ragioneSociale, LocalDate dataInizio, LocalDate dataFine) {
         Optional<Cliente> cliente = clienti.perRagioneSociale(ragioneSociale);
@@ -111,10 +122,17 @@ public class TimesheetTools {
                     + "'. Prova cercaClienti per trovare il nome esatto.";
         }
 
-        BigDecimal totale = timesheet.sommaOreCliente(cliente.get().id, dataInizio, dataFine);
+        OrePeriodo lavorate = timesheet.oreClientePeriodo(cliente.get().id, dataInizio, dataFine);
+
+        if (lavorate.vuoto()) {
+            return "Per il cliente %s non ci sono ore registrate tra il %s e il %s.".formatted(
+                    cliente.get().ragioneSociale,
+                    TestoTools.data(dataInizio), TestoTools.data(dataFine));
+        }
+
         return "Per il cliente %s sono state lavorate %s ore tra il %s e il %s.".formatted(
-                cliente.get().ragioneSociale, TestoTools.ore(totale),
-                TestoTools.data(dataInizio), TestoTools.data(dataFine));
+                cliente.get().ragioneSociale, TestoTools.ore(lavorate.ore()),
+                TestoTools.data(lavorate.primoGiorno()), TestoTools.data(lavorate.ultimoGiorno()));
     }
 
     @Tool("""
