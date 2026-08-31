@@ -1,0 +1,67 @@
+<!-- `novalidate`: i controlli sono quelli del form Angular, non quelli del browser. -->
+<form class="form" novalidate (submit)="onSubmit($event)">
+  @let controls = form().controls;
+
+  <div class="riga">
+    <mat-form-field class="campo" appearance="outline">
+      <mat-label>Nome del sito</mat-label>
+
+      <input matInput type="text" autocomplete="off" required [formControl]="controls.nome" />
+
+      @let erroreNome = messaggioErrore(controls.nome);
+      @if (erroreNome) {
+        <mat-error>{{ erroreNome }}</mat-error>
+      }
+    </mat-form-field>
+
+    <!-- Il sito nasce sempre attaccato a un cliente: senza, il backend risponde 400. -->
+    <mat-form-field class="campo" appearance="outline">
+      <mat-label>Cliente</mat-label>
+
+      <mat-select required [disabled]="inCaricamentoClienti()" [formControl]="controls.clienteId">
+        @for (cliente of clienti(); track cliente.id) {
+          <mat-option [value]="cliente.id">{{ cliente.ragioneSociale }}</mat-option>
+        }
+      </mat-select>
+
+      @if (inCaricamentoClienti()) {
+        <mat-hint>Caricamento clienti…</mat-hint>
+      }
+
+      @let erroreCliente = messaggioErrore(controls.clienteId);
+      @if (erroreCliente) {
+        <mat-error>{{ erroreCliente }}</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  <div class="riga">
+    <!-- L'unico campo facoltativo, e lo dice: senza l'etichetta si compilerebbe
+         per abitudine credendolo obbligatorio come gli altri due. -->
+    <mat-form-field class="campo campo--largo" appearance="outline">
+      <mat-label>Indirizzo (facoltativo)</mat-label>
+
+      <input
+        matInput
+        type="text"
+        autocomplete="street-address"
+        [formControl]="controls.indirizzo"
+      />
+
+      @let erroreIndirizzo = messaggioErrore(controls.indirizzo);
+      @if (erroreIndirizzo) {
+        <mat-error>{{ erroreIndirizzo }}</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  <div class="pulsanti">
+    <button mat-stroked-button type="button" [disabled]="inSalvataggio()" (click)="annulla.emit()">
+      Annulla
+    </button>
+
+    <button mat-flat-button type="submit" [disabled]="isSalvaDisabled() || inSalvataggio()">
+      Salva sito
+    </button>
+  </div>
+</form>

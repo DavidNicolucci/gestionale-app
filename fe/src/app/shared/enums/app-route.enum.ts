@@ -15,7 +15,10 @@ export enum AppRoute {
   DIPENDENTI = 'dipendenti',
   NUOVO_DIPENDENTE = `${DIPENDENTI}/nuovo`,
 
-  // ***** ALTRE SEZIONI *****
+  // ***** SITI *****
   SITI = 'siti',
+  NUOVO_SITO = `${SITI}/nuovo`,
+
+  // ***** ALTRE SEZIONI *****
   TIMESHEET = 'timesheet',
 }

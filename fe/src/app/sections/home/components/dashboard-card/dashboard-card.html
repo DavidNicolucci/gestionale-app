@@ -14,15 +14,4 @@
       <mat-icon>arrow_forward</mat-icon>
     </span>
   </a>
-
-  @if (card().azioni.length) {
-    <div class="azioni">
-      @for (azione of card().azioni; track azione.label) {
-        <a class="chip" [routerLink]="getAzioneLink(azione)">
-          <mat-icon>{{ azione.icona }}</mat-icon>
-          {{ azione.label }}
-        </a>
-      }
-    </div>
-  }
 </div>

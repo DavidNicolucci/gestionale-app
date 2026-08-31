@@ -1,0 +1,29 @@
+:host {
+  display: block;
+}
+
+.campo {
+  width: 100%;
+  max-width: 420px;
+}
+
+/* I filtri stanno sulla stessa riga finché c'è spazio, poi vanno a capo. */
+.filtri {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.75rem;
+
+  .filtro {
+    flex: 1 1 200px;
+    max-width: 260px;
+  }
+
+  /* Allineati in basso, alla stessa altezza dei campi. */
+  .pulsanti {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-bottom: 0.25rem;
+  }
+}

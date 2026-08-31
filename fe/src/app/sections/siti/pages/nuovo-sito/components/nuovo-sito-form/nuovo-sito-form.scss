@@ -1,0 +1,45 @@
+:host {
+  display: block;
+}
+
+/* Tre campi soli: nome e cliente stanno in coppia sulla prima riga, l'indirizzo
+   si prende la seconda per intero perché è il più lungo da scrivere. A schermo
+   stretto tornano in colonna da soli. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 560px;
+
+  .riga {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .campo {
+    flex: 1 1 240px;
+    min-width: 0;
+    max-width: 260px;
+  }
+
+  .campo--largo {
+    max-width: 536px;
+  }
+
+  .pulsanti {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .form .campo {
+    max-width: none;
+  }
+
+  .form .pulsanti {
+    flex-direction: column-reverse;
+  }
+}

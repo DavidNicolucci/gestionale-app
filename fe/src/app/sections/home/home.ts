@@ -2,9 +2,9 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { Router } from '@angular/router';
 import { MatButton } from '@angular/material/button';
 import { AuthService } from '../../services/auth/service/auth.service';
-import {DashboardCard} from './components/dashboard-card/dashboard-card';
-import {DashboardCardsService} from './services/dashboard-cards.service';
-import {AppRoute} from '../../shared/enums/app-route.enum';
+import { DashboardCard } from './components/dashboard-card/dashboard-card';
+import { DashboardCardsService } from './services/dashboard-cards.service';
+import { AppRoute } from '../../shared/enums/app-route.enum';
 
 @Component({
   selector: 'app-home',

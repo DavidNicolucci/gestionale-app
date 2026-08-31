@@ -1,0 +1,68 @@
+@if (siti().length) {
+  <div class="riquadro">
+    <!-- Sotto una certa larghezza la tabella scorre da sola: comprimendo le colonne
+         indirizzi e ragioni sociali andrebbero a capo e le righe perderebbero
+         l'allineamento. -->
+    <div class="scorrevole">
+      <table mat-table [dataSource]="siti()" [trackBy]="tracciaSito" class="tabella">
+        <ng-container matColumnDef="nome">
+          <th mat-header-cell *matHeaderCellDef>Nome</th>
+          <td mat-cell *matCellDef="let sito">{{ sito.nome }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="indirizzo">
+          <th mat-header-cell *matHeaderCellDef>Indirizzo</th>
+          <td mat-cell *matCellDef="let sito">
+            @if (sito.indirizzo) {
+              {{ sito.indirizzo }}
+            } @else {
+              <span class="assente">{{ SENZA_INDIRIZZO }}</span>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="cliente">
+          <th mat-header-cell *matHeaderCellDef>Cliente</th>
+          <td mat-cell *matCellDef="let sito">{{ sito.clienteRagioneSociale }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="azioni">
+          <th mat-header-cell *matHeaderCellDef>Azioni</th>
+          <td mat-cell *matCellDef="let sito">
+            <button
+              class="elimina"
+              mat-icon-button
+              type="button"
+              matTooltip="Elimina"
+              [attr.aria-label]="'Elimina ' + sito.nome"
+              (click)="elimina.emit(sito)"
+            >
+              <mat-icon>delete_outline</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="colonne"></tr>
+        <tr mat-row *matRowDef="let riga; columns: colonne"></tr>
+      </table>
+    </div>
+
+    <!-- length è il totale trovato dai filtri, non le righe a schermo: è quello che
+         permette al paginatore di sapere quante pagine esistono. -->
+    <mat-paginator
+      class="paginatore"
+      [length]="totaleElementi()"
+      [pageIndex]="numeroDiPagina()"
+      [pageSize]="righePerPagina()"
+      [pageSizeOptions]="opzioniRighePerPagina"
+      (page)="onPagina($event)"
+    />
+  </div>
+} @else if (!loading()) {
+  <!-- Durante la ricerca la tabella è ancora vuota: non è un "nessun risultato". -->
+  <div class="vuoto">
+    <mat-icon class="icona" aria-hidden="true">search_off</mat-icon>
+    <p class="titolo">Nessun sito trovato</p>
+    <p class="messaggio">Prova a cambiare i filtri di ricerca.</p>
+  </div>
+}

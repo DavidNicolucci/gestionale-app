@@ -32,6 +32,10 @@ export const routes: Routes = [
         loadChildren: () => import('./sections/dipendenti/routes').then((m) => m.dipendentiRoutes),
       },
       {
+        path: AppRoute.SITI,
+        loadChildren: () => import('./sections/siti/routes').then((m) => m.sitiRoutes),
+      },
+      {
         path: AppRoute.TIMESHEET,
         loadChildren: () => import('./sections/timesheet/routes').then((m) => m.timesheetRoutes),
       },

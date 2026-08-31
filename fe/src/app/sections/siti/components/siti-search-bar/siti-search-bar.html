@@ -1,0 +1,80 @@
+<mat-form-field class="campo mb-3" appearance="outline" subscriptSizing="dynamic">
+  <mat-label>Cerca sito</mat-label>
+
+  <mat-icon matPrefix>search</mat-icon>
+
+  <input
+    matInput
+    type="search"
+    autocomplete="off"
+    placeholder="Nome del sito"
+    [value]="filtri().termine"
+    [matAutocomplete]="tendinaTermine"
+    (input)="onCampo('termine', $event)"
+  />
+
+  <mat-autocomplete
+    #tendinaTermine="matAutocomplete"
+    (optionSelected)="onOpzione('termine', $event.option.value)"
+  >
+    @for (opzione of opzioniNome(); track opzione) {
+      <mat-option [value]="opzione">{{ opzione }}</mat-option>
+    }
+  </mat-autocomplete>
+
+  @if (filtri().termine) {
+    <button
+      matSuffix
+      mat-icon-button
+      type="button"
+      aria-label="Pulisci ricerca"
+      (click)="onPulisci()"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  }
+</mat-form-field>
+
+<div class="filtri">
+  <mat-form-field class="filtro" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Nome</mat-label>
+    <input
+      matInput
+      type="text"
+      autocomplete="off"
+      [value]="filtri().nome"
+      [matAutocomplete]="tendinaNome"
+      (input)="onCampo('nome', $event)"
+    />
+    <mat-autocomplete
+      #tendinaNome="matAutocomplete"
+      (optionSelected)="onOpzione('nome', $event.option.value)"
+    >
+      @for (opzione of opzioniNome(); track opzione) {
+        <mat-option [value]="opzione">{{ opzione }}</mat-option>
+      }
+    </mat-autocomplete>
+  </mat-form-field>
+
+  <!-- Scelta fissa e non testo libero: il backend filtra sull'id del cliente. -->
+  <mat-form-field class="filtro" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Cliente</mat-label>
+    <mat-select [value]="filtri().clienteId" (selectionChange)="onCliente($event)">
+      <!-- Prima voce: è così che si toglie il filtro senza passare da "Rimuovi filtri". -->
+      <mat-option [value]="null">Tutti i clienti</mat-option>
+      @for (cliente of clienti(); track cliente.id) {
+        <mat-option [value]="cliente.id">{{ cliente.ragioneSociale }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <div class="pulsanti">
+    <button mat-stroked-button type="button" [disabled]="!haFiltri()" (click)="rimuovi.emit()">
+      Rimuovi filtri
+    </button>
+
+    <button mat-flat-button type="button" [disabled]="!haFiltri()" (click)="applica.emit()">
+      Applica filtri
+    </button>
+  </div>
+</div>

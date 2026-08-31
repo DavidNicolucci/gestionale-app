@@ -21,6 +21,16 @@ export class ClientApiService {
     return { ...response, risultati: plainToInstance(ClienteModel, response.risultati ?? []) };
   }
 
+  /**
+   * Anagrafica completa, senza filtri né pagine. Serve dove il cliente è una
+   * scelta e non un risultato di ricerca: le tendine che lo fanno selezionare
+   * (per esempio nei siti) devono poterli mostrare tutti.
+   */
+  async lista(): Promise<ClienteModel[]> {
+    const get$ = this.http.get<ClienteModel[]>('/api/clienti');
+    return plainToInstance(ClienteModel, await firstValueFrom(get$));
+  }
+
   /** Crea un cliente e restituisce quello salvato, con l'id assegnato dal backend. */
   async crea(cliente: SalvaClienteRequestModel): Promise<ClienteModel> {
     const post$ = this.http.post<ClienteModel>('/api/clienti', cliente);

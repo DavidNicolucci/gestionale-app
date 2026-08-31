@@ -1,0 +1,204 @@
+:host {
+  display: block;
+
+  /* Accento della sezione, ereditato dalla pagina che ospita la tabella. Il
+     fallback vale se un domani la tabella finisce dove nessuno lo definisce. */
+  --tinta: var(--accento, #f59e0b);
+
+  /* Bordi, intestazione ed evidenziazioni nascono tutti dall'accento, ma così
+     diluito da restare un grigio: la tabella prende la temperatura della sezione
+     senza diventare una superficie colorata. Si toccano da un punto solo. */
+  --bordo: color-mix(in srgb, var(--tinta) 20%, #e3e6ec);
+  --intestazione: color-mix(in srgb, var(--tinta) 6%, #fff);
+  --riga-evidenziata: color-mix(in srgb, var(--tinta) 5%, transparent);
+}
+
+/* Tabella e paginatore stanno nello stesso riquadro: gli angoli tondi, il bordo e
+   l'ombra li tiene il contenitore, così il paginatore non sembra una scheda staccata. */
+.riquadro {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--bordo);
+  border-radius: 14px;
+  /* Taglia gli angoli della prima e dell'ultima riga, che sono quadrati, e il
+     filo d'accento in cima. */
+  overflow: hidden;
+  /* Ombra appena accennata, con la diffusa tinta d'accento invece che nera:
+     alza la scheda dallo sfondo e ripete il colore senza incorniciarla. */
+  box-shadow:
+    0 1px 2px rgb(16 24 40 / 4%),
+    0 8px 24px color-mix(in srgb, var(--tinta) 13%, transparent);
+
+  /* Il segno più esplicito della pagina: la stessa barra d'accento della card in
+     home, appoggiata sul lato lungo della tabella. Tre pixel, niente di più. */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: linear-gradient(90deg, var(--tinta), color-mix(in srgb, var(--tinta) 30%, #fff));
+  }
+}
+
+.scorrevole {
+  overflow-x: auto;
+}
+
+.tabella {
+  width: 100%;
+  /* Sotto questa soglia si scorre invece di stringere le colonne. Più stretta di
+     quella dei dipendenti: qui le colonne sono quattro. */
+  min-width: 720px;
+
+  /* Token di Material: il colore lo dà il riquadro, non la tabella. */
+  --mat-table-background-color: transparent;
+  --mat-table-row-item-outline-color: var(--bordo);
+  --mat-table-header-container-height: 44px;
+  --mat-table-row-item-container-height: 56px;
+  --mat-table-row-item-label-text-size: 0.875rem;
+}
+
+/* Maiuscoletto spaziato e tenue: l'intestazione si distingue dalle righe per
+   trattamento, non per peso, e non ruba lettura ai dati. */
+.tabella th.mat-mdc-header-cell {
+  background: var(--intestazione);
+  border-bottom-color: var(--bordo);
+  /* Non a colore pieno: quel tanto di accento che basta a non farlo leggere grigio. */
+  color: color-mix(in srgb, var(--tinta) 50%, var(--mat-sys-on-surface-variant));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* Le intestazioni sono corte: a capo starebbero male. */
+  white-space: nowrap;
+}
+
+.tabella th.mat-mdc-header-cell,
+.tabella td.mat-mdc-cell {
+  padding: 0 1rem;
+  border-bottom-color: var(--bordo);
+
+  /* Prima e ultima colonna respirano quanto il bordo del riquadro. */
+  &:first-of-type {
+    padding-left: 1.5rem;
+  }
+
+  &:last-of-type {
+    padding-right: 1.5rem;
+  }
+}
+
+.tabella tr.mat-mdc-row {
+  transition: background-color 120ms ease;
+
+  &:hover {
+    background: var(--riga-evidenziata);
+  }
+
+  /* Il bordo dell'ultima riga sarebbe doppio con quello del paginatore. */
+  &:last-of-type td.mat-mdc-cell {
+    border-bottom: none;
+  }
+}
+
+/* Larghezza fissa invece che stretta sul contenuto: stringendola sul cestino la
+   colonna si appiccicherebbe al bordo destro e le azioni sembrerebbero fuori
+   dalla tabella. Dentro la fascia, testo e icona stanno al centro. */
+.tabella th.mat-column-azioni,
+.tabella td.mat-column-azioni {
+  width: 8rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Grigia a riposo: sono dieci cestini in colonna, se fossero rossi la tabella
+   sembrerebbe un elenco di errori. Il rosso arriva solo quando si punta la riga
+   che si sta per eliminare. */
+.elimina {
+  color: var(--mat-sys-outline);
+  transition: color 120ms ease;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--mat-sys-error);
+  }
+}
+
+/* Una sola colonna in evidenza: il nome, che è come si cerca un sito. Le altre
+   restano tenui, così l'occhio scorre la prima e legge il resto solo se serve. */
+.tabella td.mat-column-nome {
+  color: var(--mat-sys-on-surface);
+  font-weight: 500;
+}
+
+.tabella td.mat-column-indirizzo,
+.tabella td.mat-column-cliente {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+/* "Non indicato" non è un dato: si legge come assenza, non come valore. */
+.assente {
+  color: var(--mat-sys-outline);
+  font-style: italic;
+}
+
+.paginatore {
+  border-top: 1px solid var(--bordo);
+
+  --mat-paginator-container-background-color: transparent;
+  --mat-paginator-container-text-color: var(--mat-sys-on-surface-variant);
+  --mat-paginator-container-size: 56px;
+
+  /* Material allinea i controlli a destra. Il contenitore interno non è nel nostro
+     template, quindi per centrarli serve ::ng-deep: resta comunque limitato a
+     quello che sta dentro .paginatore. */
+  ::ng-deep .mat-mdc-paginator-container {
+    justify-content: center;
+  }
+}
+
+/* Stessa forma del riquadro ma tratteggiato: si legge come "qui non c'è niente"
+   invece che come una scheda vuota. */
+.vuoto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3.5rem 1.5rem;
+  background: #fff;
+  border: 1px dashed var(--bordo);
+  border-radius: 14px;
+  text-align: center;
+
+  .icona {
+    width: 2rem;
+    height: 2rem;
+    margin-bottom: 0.75rem;
+    color: var(--mat-sys-outline);
+    font-size: 2rem;
+  }
+
+  .titolo {
+    margin: 0;
+    color: var(--mat-sys-on-surface);
+    font-weight: 500;
+  }
+
+  .messaggio {
+    margin: 0.25rem 0 0;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .tabella th.mat-mdc-header-cell,
+  .tabella td.mat-mdc-cell {
+    &:first-of-type {
+      padding-left: 1rem;
+    }
+
+    &:last-of-type {
+      padding-right: 1rem;
+    }
+  }
+}
