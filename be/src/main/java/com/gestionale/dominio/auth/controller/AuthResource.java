@@ -15,10 +15,13 @@ import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
 import jakarta.annotation.security.PermitAll;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 @Path("/api/auth")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Tag(name = "Autenticazione", description = "Entrare e uscire dal gestionale e sapere chi e' l'utente collegato")
 public class AuthResource {
 
     // Nome del cookie che contiene il token. Deve essere uguale a mp.jwt.token.cookie
@@ -39,6 +42,12 @@ public class AuthResource {
     @POST
     @Path("/login")
     @PermitAll                              // ovvio: al login si arriva senza essere loggati
+    @Operation(
+            summary = "Accedi con username e password",
+            description = "Controlla le credenziali e, se sono giuste, apre la sessione: il token di accesso viene "
+                    + "messo in un cookie sicuro che il browser rimanda da solo a ogni chiamata successiva, "
+                    + "mentre nella risposta arrivano username e ruoli. La sessione dura 8 ore. "
+                    + "Credenziali sbagliate: 401.")
     public Response login(@Valid LoginRequest req) {
         Autenticazione esito = authService.autentica(req.username, req.password);
         String token = esito.token();
@@ -61,6 +70,11 @@ public class AuthResource {
     @POST
     @Path("/logout")
     @PermitAll
+    @Operation(
+            summary = "Esci dal gestionale",
+            description = "Chiude la sessione cancellando il cookie di accesso e, insieme, lo storico della chat "
+                    + "con l'assistente. Si puo' chiamare anche se la sessione e' gia' scaduta: in quel caso "
+                    + "non fa nulla e risponde comunque 204.")
     public Response logout() {
         // La conversazione con l'assistente muore con la sessione: storico su
         // database e memoria del modello se ne vanno insieme al cookie.
@@ -85,6 +99,11 @@ public class AuthResource {
     @GET
     @Path("/me")
     @Authenticated
+    @Operation(
+            summary = "Chi e' l'utente collegato",
+            description = "Restituisce username e ruoli di chi sta usando l'applicazione. Il frontend la chiama "
+                    + "quando si ricarica la pagina, per capire se la sessione e' ancora valida e cosa mostrare. "
+                    + "Se la sessione e' scaduta risponde 401.")
     public LoginResponse me() {
         // Il frontend non puo' leggere il cookie, quindi quando si ricarica la pagina
         // chiama qui per sapere se e' ancora loggato e chi e' l'utente.

@@ -11,11 +11,14 @@ import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import java.util.List;
 
 @Path("/api/siti")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Tag(name = "Siti", description = "I luoghi di lavoro (cantieri, sedi) collegati a un cliente")
 public class SitoResource {
 
     @Inject
@@ -23,6 +26,10 @@ public class SitoResource {
 
     @GET
     @RolesAllowed({"ADMIN", "OPERATOR"})
+    @Operation(
+            summary = "Elenco di tutti i siti",
+            description = "Restituisce l'elenco completo dei siti, senza filtri e senza pagine. "
+                    + "Utile per riempire le tendine di scelta. Per la tabella con filtri usare /api/siti/ricerca.")
     public List<SitoResponse> lista() {
         return service.listaTutti().stream().map(SitoResponse::da).toList();
     }
@@ -31,6 +38,11 @@ public class SitoResource {
     @POST
     @Path("/ricerca")
     @RolesAllowed({"ADMIN", "OPERATOR"})
+    @Operation(
+            summary = "Cerca i siti a pagine",
+            description = "Restituisce una pagina di siti in base ai filtri e all'ordinamento indicati nel corpo "
+                    + "della richiesta. E' una POST solo perche' i filtri sono troppi per stare nell'indirizzo. "
+                    + "Corpo vuoto: prima pagina, nessun filtro.")
     public PaginaResponse<SitoResponse> ricerca(SitoRicercaRequest req) {
         return service.cerca(req != null ? req : new SitoRicercaRequest());
     }
@@ -38,12 +50,20 @@ public class SitoResource {
     @GET
     @Path("/{id}")
     @RolesAllowed({"ADMIN", "OPERATOR"})
+    @Operation(
+            summary = "Dettaglio di un sito",
+            description = "Restituisce tutti i dati del sito con l'id indicato, cliente di appartenenza compreso. "
+                    + "Se l'id non esiste risponde 404.")
     public SitoResponse dettaglio(@PathParam("id") Long id) {
         return SitoResponse.da(service.trovaPerId(id));
     }
 
     @POST
     @RolesAllowed("ADMIN")
+    @Operation(
+            summary = "Crea un nuovo sito",
+            description = "Aggiunge un sito e lo collega al cliente indicato nella richiesta. Restituisce i dati "
+                    + "salvati, id compreso. Se il cliente indicato non esiste risponde 404. Riservato agli ADMIN.")
     public SitoResponse crea(@Valid SitoRequest req) {
         return SitoResponse.da(service.crea(req));
     }
@@ -52,6 +72,10 @@ public class SitoResource {
     @PATCH
     @Path("/{id}")
     @RolesAllowed("ADMIN")
+    @Operation(
+            summary = "Modifica un sito",
+            description = "Aggiorna solo i campi presenti nella richiesta: quelli che non vengono inviati restano "
+                    + "come sono. Si puo' anche spostare il sito su un altro cliente. Riservato agli ADMIN.")
     public SitoResponse aggiorna(@PathParam("id") Long id, @Valid SitoPatchRequest req) {
         return SitoResponse.da(service.aggiorna(id, req));
     }
@@ -59,6 +83,9 @@ public class SitoResource {
     @DELETE
     @Path("/{id}")
     @RolesAllowed("ADMIN")
+    @Operation(
+            summary = "Elimina un sito",
+            description = "Toglie il sito dall'elenco. Non restituisce nulla (204). Riservato agli ADMIN.")
     public void elimina(@PathParam("id") Long id) {
         service.elimina(id);
     }

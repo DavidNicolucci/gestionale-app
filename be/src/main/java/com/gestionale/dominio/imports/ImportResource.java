@@ -13,6 +13,8 @@ import org.eclipse.microprofile.reactive.messaging.Channel;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,6 +23,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 @Path("/api/import")
+@Tag(name = "Import", description = "Caricamento massivo delle ore da file")
 public class ImportResource {
 
     @ConfigProperty(name = "import.upload-dir")
@@ -41,6 +44,11 @@ public class ImportResource {
     @Consumes(MediaType.MULTIPART_FORM_DATA)   // qui arriva un file, non del JSON
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"ADMIN", "OPERATOR"})
+    @Operation(
+            summary = "Carica un file di ore da importare",
+            description = "Riceve un file con le ore dei dipendenti, lo salva e lo mette in coda per l'elaborazione. "
+                    + "La risposta e' immediata (202: file ricevuto) e non aspetta la fine dell'import: le righe "
+                    + "vengono inserite poco dopo, in background. Il file va inviato come form-data nel campo \"file\".")
     public Response upload(@RestForm("file") FileUpload file) throws IOException {
 
         // 1. Crea la cartella di upload se non esiste

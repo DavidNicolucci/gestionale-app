@@ -13,11 +13,14 @@ import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import java.util.List;
 
 @Path("/api/dipendenti")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Tag(name = "Dipendenti", description = "Anagrafica dei dipendenti e stato dei loro contratti")
 public class DipendenteResource {
 
     @Inject
@@ -25,6 +28,10 @@ public class DipendenteResource {
 
     @GET
     @RolesAllowed({"ADMIN", "OPERATOR"})       // leggono entrambi i ruoli
+    @Operation(
+            summary = "Elenco di tutti i dipendenti",
+            description = "Restituisce l'elenco completo dei dipendenti attivi, senza filtri e senza pagine. "
+                    + "Utile per riempire le tendine di scelta. Per la tabella con filtri usare /api/dipendenti/ricerca.")
     public List<DipendenteResponse> lista() {
         return service.listaTutti();
     }
@@ -34,6 +41,11 @@ public class DipendenteResource {
     @POST
     @Path("/ricerca")
     @RolesAllowed({"ADMIN", "OPERATOR"})
+    @Operation(
+            summary = "Cerca i dipendenti a pagine",
+            description = "Restituisce una pagina di dipendenti in base ai filtri e all'ordinamento indicati nel "
+                    + "corpo della richiesta. E' una POST solo perche' i filtri sono troppi per stare nell'indirizzo. "
+                    + "Corpo vuoto: prima pagina, nessun filtro.")
     public PaginaResponse<DipendenteResponse> ricerca(DipendenteRicercaRequest req) {
         return service.cerca(req != null ? req : new DipendenteRicercaRequest());
     }
@@ -45,6 +57,10 @@ public class DipendenteResource {
     @GET
     @Path("/scadenze")
     @RolesAllowed({"ADMIN", "OPERATOR"})
+    @Operation(
+            summary = "Contratti scaduti o in scadenza",
+            description = "Restituisce il riepilogo dei contratti gia' scaduti e di quelli che stanno per scadere. "
+                    + "Serve all'avviso mostrato sopra la tabella dei dipendenti.")
     public ScadenzeResponse scadenze() {
         return service.scadenze();
     }
@@ -52,12 +68,19 @@ public class DipendenteResource {
     @GET
     @Path("/{id}")
     @RolesAllowed({"ADMIN", "OPERATOR"})
+    @Operation(
+            summary = "Dettaglio di un dipendente",
+            description = "Restituisce tutti i dati del dipendente con l'id indicato. Se l'id non esiste risponde 404.")
     public DipendenteResponse dettaglio(@PathParam("id") Long id) {
         return service.trovaPerId(id);
     }
 
     @POST
     @RolesAllowed("ADMIN")                      // crea solo l'ADMIN
+    @Operation(
+            summary = "Crea un nuovo dipendente",
+            description = "Aggiunge un dipendente all'anagrafica e restituisce i dati salvati, id compreso. "
+                    + "Riservato agli ADMIN.")
     public DipendenteResponse crea(@Valid DipendenteRequest req) {
         return service.crea(req);
     }
@@ -66,6 +89,10 @@ public class DipendenteResource {
     @PATCH
     @Path("/{id}")
     @RolesAllowed("ADMIN")
+    @Operation(
+            summary = "Modifica un dipendente",
+            description = "Aggiorna solo i campi presenti nella richiesta: quelli che non vengono inviati restano "
+                    + "come sono. Restituisce il dipendente aggiornato. Riservato agli ADMIN.")
     public DipendenteResponse aggiorna(@PathParam("id") Long id, @Valid DipendentePatchRequest req) {
         return service.aggiorna(id, req);
     }
@@ -76,6 +103,11 @@ public class DipendenteResource {
     @DELETE
     @Path("/{id}")
     @RolesAllowed("ADMIN")                      // cancella solo l'ADMIN
+    @Operation(
+            summary = "Elimina un dipendente",
+            description = "Il dipendente sparisce da elenchi e ricerche, ma i suoi dati e le ore gia' registrate "
+                    + "restano salvati: la cancellazione e' solo logica. Per rimetterlo in servizio usare "
+                    + "/api/dipendenti/{id}/ripristino. Non restituisce nulla (204). Riservato agli ADMIN.")
     public void elimina(@PathParam("id") Long id) {
         service.elimina(id);
     }
@@ -87,6 +119,10 @@ public class DipendenteResource {
     @POST
     @Path("/{id}/ripristino")
     @RolesAllowed("ADMIN")
+    @Operation(
+            summary = "Ripristina un dipendente eliminato",
+            description = "Riporta in anagrafica un dipendente che era stato eliminato: torna a comparire negli "
+                    + "elenchi e nelle ricerche. Restituisce il dipendente ripristinato. Riservato agli ADMIN.")
     public DipendenteResponse ripristina(@PathParam("id") Long id) {
         return service.ripristina(id);
     }
@@ -96,6 +132,11 @@ public class DipendenteResource {
     @POST
     @Path("/{id}/rinnovo")
     @RolesAllowed("ADMIN")
+    @Operation(
+            summary = "Rinnova il contratto di un dipendente",
+            description = "Sposta in avanti la scadenza del contratto alla nuova data indicata. Si usa sia in "
+                    + "anticipo, su un contratto ancora valido, sia su uno gia' scaduto per rendere di nuovo "
+                    + "utilizzabile il dipendente. Riservato agli ADMIN.")
     public DipendenteResponse rinnova(@PathParam("id") Long id, @Valid RinnovoRequest req) {
         return service.rinnova(id, req);
     }
