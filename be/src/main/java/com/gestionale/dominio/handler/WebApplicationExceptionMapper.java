@@ -12,6 +12,7 @@ import org.jboss.logging.Logger;
  * Gestisce gli errori che lanciamo apposta per dire al client cosa ha sbagliato:
  *   - 404 dai service ("Dipendente 7 non trovato")
  *   - 401 dal login ("Credenziali non valide")
+ *   - 429 dal login quando i tentativi falliti sono troppi
  *   - 409 quando il codice fiscale esiste gia'
  *
  * Senza questa classe il codice di stato arriverebbe giusto ma con il body vuoto,
@@ -54,6 +55,8 @@ public class WebApplicationExceptionMapper implements ExceptionMapper<WebApplica
                 exception.getMessage(),
                 path);
 
-        return Response.status(status).entity(body).build();
+        // fromResponse tiene gli header della risposta originale: il 429 del login
+        // porta Retry-After, e ricostruendola da zero andrebbe perso.
+        return Response.fromResponse(originale).entity(body).build();
     }
 }

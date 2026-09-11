@@ -240,6 +240,61 @@
           "legendFormat": "{{cause}}"
         }
       ]
+    },
+    {
+      "type": "row",
+      "title": "Sicurezza login",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 }
+    },
+    {
+      "type": "stat",
+      "title": "Blocchi login (ultima ora)",
+      "description": "Quante volte uno username o un IP e' stato bloccato per troppe password sbagliate. Anche uno solo merita un'occhiata: username e IP sono nel log (cerca 'Login bloccato').",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 42 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (motivo) (increase(gestionale_login_blocchi_total{application=\"gestionale-backend\"}[1h]))",
+          "legendFormat": "{{motivo}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tentativi di login per esito",
+      "description": "ok = entrato, rifiutato = password sbagliata (401), bloccato = respinto senza controllare la password (429). Tanti 'rifiutato' senza nessun blocco possono voler dire un attacco distribuito su molti IP e molti username.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 42 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ok" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+          { "matcher": { "id": "byName", "options": "rifiutato" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byName", "options": "bloccato" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (esito) (increase(gestionale_login_tentativi_total{application=\"gestionale-backend\"}[1m]))",
+          "legendFormat": "{{esito}}"
+        }
+      ]
     }
   ]
 }

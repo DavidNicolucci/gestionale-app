@@ -7,9 +7,11 @@ import com.gestionale.dominio.auth.model.LoginResponse;
 import com.gestionale.dominio.auth.service.AuthService;
 
 import io.quarkus.security.Authenticated;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
@@ -47,9 +49,14 @@ public class AuthResource {
             description = "Controlla le credenziali e, se sono giuste, apre la sessione: il token di accesso viene "
                     + "messo in un cookie sicuro che il browser rimanda da solo a ogni chiamata successiva, "
                     + "mentre nella risposta arrivano username e ruoli. La sessione dura 8 ore. "
-                    + "Credenziali sbagliate: 401.")
-    public Response login(@Valid LoginRequest req) {
-        Autenticazione esito = authService.autentica(req.username, req.password);
+                    + "Credenziali sbagliate: 401. Troppi tentativi falliti sullo stesso username o dallo "
+                    + "stesso indirizzo: 429, con l'header Retry-After che dice fra quanti secondi riprovare.")
+    public Response login(@Valid LoginRequest req, @Context HttpServerRequest richiesta) {
+        // L'IP di chi chiama. Dietro un reverse proxy sarebbe sempre quello del proxy:
+        // in quel caso va attivato quarkus.http.proxy.proxy-address-forwarding (vedi
+        // application.properties), e Vert.x mette qui l'IP vero preso da X-Forwarded-For.
+        String ip = richiesta.remoteAddress() != null ? richiesta.remoteAddress().hostAddress() : null;
+        Autenticazione esito = authService.autentica(req.username, req.password, ip);
         String token = esito.token();
         // Il token sta solo nel cookie. httpOnly: il JavaScript della pagina non puo'
         // leggerlo, quindi non se lo puo' rubare uno script malevolo.

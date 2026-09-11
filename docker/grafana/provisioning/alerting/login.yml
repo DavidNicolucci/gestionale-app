@@ -1,0 +1,78 @@
+# Alert sulla sicurezza del login, caricati da Grafana all'avvio come le dashboard.
+# Leggono i contatori di MetricheLogin (backend). Senza un contact point configurato
+# gli alert si vedono solo in Grafana (Alerting > Alert rules): per riceverli via mail
+# o Slack va aggiunto un contact point e collegato alla notification policy.
+#
+# NB: il provisioning degli alert e' letto solo all'avvio del container, quindi dopo
+# una modifica serve "docker compose restart grafana".
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: sicurezza-login
+    folder: Gestionale
+    interval: 1m                         # ogni quanto Grafana valuta le regole
+    rules:
+
+      # Qualcuno ha sbagliato la password abbastanza volte da far scattare un blocco,
+      # su un account o da un IP. Username e IP si trovano nel log: "Login bloccato".
+      - uid: login-blocco-scattato
+        title: Login bloccato per troppi tentativi
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(gestionale_login_blocchi_total{application="gestionale-backend"}[5m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK                  # nessun dato = nessun blocco, non e' un problema
+        execErrState: Error
+        for: 0s                          # un blocco e' gia' il segnale: nessuna attesa
+        labels:
+          severity: warning
+        annotations:
+          summary: "Scattato almeno un blocco del login negli ultimi 5 minuti"
+          description: "Troppe password sbagliate sullo stesso username o dallo stesso IP. Cercare 'Login bloccato' nel log del backend per sapere quali."
+
+      # Tante password sbagliate in poco tempo, anche se nessun blocco e' scattato:
+      # e' la forma di un attacco distribuito (molti IP, pochi tentativi per account)
+      # che resta sotto le soglie di ProtezioneLogin. 30 in 5 minuti e' ben oltre gli
+      # errori di battitura di un ufficio normale.
+      - uid: login-troppi-rifiuti
+        title: Troppe password sbagliate
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(gestionale_login_tentativi_total{application="gestionale-backend", esito="rifiutato"}[5m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [30] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Piu' di 30 login falliti negli ultimi 5 minuti"
+          description: "Possibile attacco distribuito sulle password: tanti tentativi da IP diversi, sotto le soglie di blocco."
