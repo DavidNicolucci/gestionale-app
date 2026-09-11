@@ -3,6 +3,7 @@ package com.gestionale.dominio.security.service;
 import com.gestionale.dominio.security.entity.AppRole;
 import com.gestionale.dominio.security.entity.AppUser;
 import com.gestionale.dominio.security.model.CreateUserRequest;
+import com.gestionale.dominio.security.model.Ruolo;
 import com.gestionale.dominio.security.model.UserResponse;
 
 import io.quarkus.elytron.security.common.BcryptUtil;
@@ -11,14 +12,13 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.WebApplicationException;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class UserService {
-
-    // Ruolo assegnato quando la richiesta non ne specifica nessuno.
-    private static final String RUOLO_DI_BASE = "USER";
 
     // @Transactional: tutte le INSERT (utente + ruoli) stanno in un'unica transazione.
     // Se qualcosa va storto a meta', si annulla tutto e non resta un utente senza ruoli.
@@ -41,19 +41,24 @@ public class UserService {
         nuovo.enabled = true;
         nuovo.persist();                 // dopo il persist, nuovo.id e' valorizzato
 
-        // 3. Decide i ruoli: quelli passati, oppure "USER" se la lista e' vuota.
-        List<String> ruoli = (req.ruoli == null || req.ruoli.isEmpty())
-                ? List.of(RUOLO_DI_BASE)
-                : req.ruoli;
+        // 3. Traduce i ruoli nell'enum. @RuoliValidi sul DTO ha gia' scartato quelli
+        //    inesistenti; qui "admin" diventa "ADMIN", la forma che confrontano i
+        //    @RolesAllowed, e un ruolo ripetuto conta una volta sola (il DB ha un
+        //    UNIQUE su utente+ruolo e altrimenti risponderebbe con un errore).
+        Set<Ruolo> ruoli = EnumSet.noneOf(Ruolo.class);
+        for (String nome : req.ruoli) {
+            ruoli.add(Ruolo.da(nome).orElseThrow(() ->
+                    new WebApplicationException("Ruolo non valido: i ruoli ammessi sono " + Ruolo.ELENCO, 400)));
+        }
 
         // 4. Crea una riga in app_user_role per ogni ruolo.
         List<String> ruoliSalvati = new ArrayList<>();
-        for (String nomeRuolo : ruoli) {
+        for (Ruolo r : ruoli) {
             AppRole ruolo = new AppRole();
             ruolo.userId = nuovo.id;
-            ruolo.roleName = nomeRuolo;
+            ruolo.roleName = r.name();
             ruolo.persist();
-            ruoliSalvati.add(nomeRuolo);
+            ruoliSalvati.add(r.name());
         }
 
         // 5. Restituisce i dati dell'utente creato, senza la password.

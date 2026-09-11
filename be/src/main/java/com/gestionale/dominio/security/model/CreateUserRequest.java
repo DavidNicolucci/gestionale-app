@@ -17,7 +17,10 @@ public class CreateUserRequest {
     @Size(min = 8, message = "La password deve avere almeno 8 caratteri")
     public String password;
 
-    // Ruoli da assegnare (es. ["USER"] oppure ["ADMIN"]). Se la lista arriva
-    // vuota o null, UserService assegna il ruolo di base "USER".
+    // Ruoli da assegnare, es. ["OPERATOR"] oppure ["ADMIN"]. Obbligatori e presi
+    // dall'enum Ruolo: un ruolo che nessun @RolesAllowed nomina darebbe un utente che
+    // entra ma riceve 403 ovunque. Maiuscole e spazi non contano ("admin" = ADMIN).
+    // Niente ruolo di default: quanto puo' fare un utente lo decide chi lo crea.
+    @RuoliValidi
     public List<String> ruoli;
 }

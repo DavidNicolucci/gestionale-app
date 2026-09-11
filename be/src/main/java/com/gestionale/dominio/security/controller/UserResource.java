@@ -38,9 +38,10 @@ public class UserResource {
     @RolesAllowed("ADMIN")
     @Operation(
             summary = "Crea un nuovo utente",
-            description = "Crea un account con username, password e ruolo (ADMIN oppure OPERATOR). La password "
-                    + "viene salvata cifrata e non viene mai restituita. Risponde 201 con i dati dell'utente creato. "
-                    + "Riservato agli ADMIN.")
+            description = "Crea un account con username, password e ruoli. I ruoli sono obbligatori e possono "
+                    + "essere solo ADMIN e/o OPERATOR (maiuscole indifferenti): qualunque altro valore, o una lista "
+                    + "vuota, da' 400 con l'elenco dei ruoli ammessi. La password viene salvata cifrata e non viene "
+                    + "mai restituita. Risponde 201 con i dati dell'utente creato. Riservato agli ADMIN.")
     public Response creaUtente(@Valid CreateUserRequest req) {
         UserResponse creato = userService.creaUtente(req);
         // 201 Created: la risorsa e' stata creata; nel corpo i dati dell'utente (senza password).

@@ -29,6 +29,26 @@ CREATE TABLE app_user_role (
 );
 GO
 
+-- Solo i ruoli che esistono davvero, cioe' quelli dei @RolesAllowed (enum Ruolo nel
+-- backend). Un ruolo inventato darebbe un utente che entra ma riceve 403 ovunque.
+-- Aggiungere un ruolo vuol dire aggiornare: @RolesAllowed, enum Ruolo e questo vincolo.
+--
+-- Perche' non basta "role_name IN ('ADMIN','OPERATOR')": il database confronta senza
+-- badare alle maiuscole e ignorando gli spazi finali, quindi accetterebbe 'admin' e
+-- 'ADMIN ', che per @RolesAllowed invece NON sono ADMIN. COLLATE Latin1_General_BIN2
+-- rende il confronto esatto carattere per carattere; LIKE al posto di = perche' su
+-- NVARCHAR, a differenza di =, tiene conto degli spazi finali.
+--
+-- ALTER separata e non dentro la CREATE: chi ha gia' il database non ripassa dalla
+-- CREATE. Se nella tabella ci fosse gia' un ruolo non valido, l'ALTER fallisce e lo
+-- dice: va corretto a mano prima di rilanciare lo script.
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'ck_user_role_nome')
+ALTER TABLE app_user_role ADD CONSTRAINT ck_user_role_nome CHECK (
+       role_name COLLATE Latin1_General_BIN2 LIKE N'ADMIN'
+    OR role_name COLLATE Latin1_General_BIN2 LIKE N'OPERATOR'
+);
+GO
+
 -- Inserisce l'utente 'admin' iniziale solo se non c'è già
 IF NOT EXISTS (SELECT 1 FROM app_user WHERE username = 'admin')  -- Controlla se 'admin' esiste già
 BEGIN                                                            -- Inizio blocco di istruzioni multiple
