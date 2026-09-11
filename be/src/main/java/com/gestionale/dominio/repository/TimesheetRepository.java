@@ -10,15 +10,37 @@ import java.util.Optional;
 @ApplicationScoped
 public class TimesheetRepository implements PanacheRepository<Timesheet> {
 
+    // REGOLA DELLE SOMME, da tenere presente prima di toccare le query qui sotto.
+    //
+    // Filtriamo SOLO "t.eliminato = false". Non filtriamo mai il dipendente, il sito o
+    // il cliente eliminati, e non e' una dimenticanza: quelle ore sono state lavorate
+    // davvero e quasi sempre gia' fatturate. Se aggiungessimo "AND t.sito.eliminato =
+    // false", il giorno che si chiude un cantiere il suo fatturato sparirebbe dai
+    // riepiloghi senza che nessuno abbia cancellato niente, cioe' esattamente il danno
+    // che la cancellazione logica doveva evitare.
+    //
+    // L'unico flag che toglie ore dai totali e' quello sulla riga di timesheet, ed e'
+    // il suo mestiere: annullare una registrazione sbagliata.
+
+    private static final String NON_ELIMINATI = "t.eliminato = false";
+
     // Il DTO mostra nome del dipendente e nome del sito. Con un normale listAll()
     // Hibernate li leggerebbe uno per volta, cioe' 2 query in piu' per ogni riga.
     // Con JOIN FETCH li carica tutti insieme: una query sola.
     public List<Timesheet> listaConRelazioni() {
-        return find("SELECT t FROM Timesheet t JOIN FETCH t.dipendente JOIN FETCH t.sito").list();
+        return find("""
+                SELECT t FROM Timesheet t JOIN FETCH t.dipendente JOIN FETCH t.sito
+                WHERE t.eliminato = false
+                ORDER BY t.dataLavoro DESC, t.id DESC
+                """).list();
     }
 
     // Come sopra ma su una riga sola: evita le 2 query in piu'.
     // Torna Optional perche' l'id potrebbe non esistere: il service lo trasforma in 404.
+    //
+    // Qui gli eliminati ci sono: e' il dettaglio di una riga precisa, e serve anche a
+    // ripristinarla. Nascondere la scheda di una riga che esiste vuol dire non poterla
+    // piu' rimettere a posto. Nella risposta il flag c'e', chi la mostra lo dice.
     public Optional<Timesheet> perIdConRelazioni(Long id) {
         return find("SELECT t FROM Timesheet t JOIN FETCH t.dipendente JOIN FETCH t.sito WHERE t.id = ?1", id)
                 .firstResultOptional();
@@ -36,7 +58,8 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
     }
 
     // Ore su tutti i siti di un cliente: il salto sito -> cliente lo fa la query,
-    // senza caricare prima l'elenco dei siti.
+    // senza caricare prima l'elenco dei siti. Ci sono anche i siti eliminati del
+    // cliente, vedi la regola delle somme in cima alla classe.
     public OrePeriodo oreClientePeriodo(Long clienteId, LocalDate da, LocalDate a) {
         return aggrega("t.sito.cliente.id = ?1", clienteId, da, a);
     }
@@ -47,7 +70,7 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
                 SELECT new com.gestionale.dominio.repository.RiepilogoOre(
                     concat(t.dipendente.nome, ' ', t.dipendente.cognome), SUM(t.oreLavorate))
                 FROM Timesheet t
-                WHERE t.sito.id = ?1 AND t.dataLavoro BETWEEN ?2 AND ?3
+                WHERE t.sito.id = ?1 AND t.eliminato = false AND t.dataLavoro BETWEEN ?2 AND ?3
                 GROUP BY t.dipendente.nome, t.dipendente.cognome
                 ORDER BY SUM(t.oreLavorate) DESC
                 """, sitoId, da, a);
@@ -60,7 +83,7 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
                         SELECT new com.gestionale.dominio.repository.RiepilogoOre(
                             concat(t.dipendente.nome, ' ', t.dipendente.cognome), SUM(t.oreLavorate))
                         FROM Timesheet t
-                        WHERE t.dataLavoro BETWEEN ?1 AND ?2
+                        WHERE t.eliminato = false AND t.dataLavoro BETWEEN ?1 AND ?2
                         GROUP BY t.dipendente.nome, t.dipendente.cognome
                         ORDER BY SUM(t.oreLavorate) DESC
                         """, RiepilogoOre.class)
@@ -76,7 +99,7 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
                         SELECT new com.gestionale.dominio.repository.RiepilogoOre(
                             t.sito.cliente.ragioneSociale, SUM(t.oreLavorate))
                         FROM Timesheet t
-                        WHERE t.dataLavoro BETWEEN ?1 AND ?2
+                        WHERE t.eliminato = false AND t.dataLavoro BETWEEN ?1 AND ?2
                         GROUP BY t.sito.cliente.ragioneSociale
                         ORDER BY SUM(t.oreLavorate) DESC
                         """, RiepilogoOre.class)
@@ -89,10 +112,18 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
     public List<Timesheet> ultimeRegistrazioni(int quante) {
         return find("""
                 SELECT t FROM Timesheet t JOIN FETCH t.dipendente JOIN FETCH t.sito
+                WHERE t.eliminato = false
                 ORDER BY t.dataLavoro DESC, t.id DESC
                 """)
                 .range(0, quante - 1)
                 .list();
+    }
+
+    // Quante righe di ore sono appese a un sito, eliminate comprese. Serve a scriverlo
+    // nel log quando il sito viene eliminato: e' il numero che dice quanta storia
+    // sarebbe sparita con una cancellazione fisica.
+    public long contaPerSito(Long sitoId) {
+        return count("sito.id", sitoId);
     }
 
     // Le tre domande sulle ore in un periodo - dipendente, sito, cliente - cambiano
@@ -112,8 +143,8 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
                         SELECT new com.gestionale.dominio.repository.OrePeriodo(
                             SUM(t.oreLavorate), MIN(t.dataLavoro), MAX(t.dataLavoro))
                         FROM Timesheet t
-                        WHERE %s AND t.dataLavoro BETWEEN ?2 AND ?3
-                        """.formatted(condizione), OrePeriodo.class)
+                        WHERE %s AND %s AND t.dataLavoro BETWEEN ?2 AND ?3
+                        """.formatted(condizione, NON_ELIMINATI), OrePeriodo.class)
                 .setParameter(1, id)
                 .setParameter(2, da)
                 .setParameter(3, a)

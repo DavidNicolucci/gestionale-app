@@ -24,4 +24,10 @@ public class Cliente extends PanacheEntityBase {
 
     @Column(name = "partita_iva")
     public String partitaIva;
+
+    // Cancellazione logica. Un cliente eliminato sparisce da elenchi, tendine e
+    // assistente, ma le ore lavorate sui suoi siti restano e continuano a contare
+    // nei totali: sono fatti gia' avvenuti, spesso gia' fatturati.
+    @Column(name = "eliminato", nullable = false)
+    public boolean eliminato;
 }

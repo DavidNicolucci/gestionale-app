@@ -29,4 +29,10 @@ public class Timesheet extends PanacheEntityBase {
 
     @Column(name = "note")
     public String note;
+
+    // Cancellazione logica. Questa e' l'unica delle tre che toglie davvero delle ore
+    // dai totali, ed e' voluto: serve ad annullare una registrazione sbagliata senza
+    // perdere la traccia che era stata inserita.
+    @Column(name = "eliminato", nullable = false)
+    public boolean eliminato;
 }

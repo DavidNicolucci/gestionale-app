@@ -14,6 +14,9 @@ export enum AppRoute {
   // ***** DIPENDENTI *****
   DIPENDENTI = 'dipendenti',
   NUOVO_DIPENDENTE = `${DIPENDENTI}/nuovo`,
+  // Path senza l'id: la pagina si apre con navigate([MODIFICA_DIPENDENTE, id]),
+  // cosi' l'enum resta un elenco di path fissi come tutti gli altri.
+  MODIFICA_DIPENDENTE = `${DIPENDENTI}/modifica`,
 
   // ***** SITI *****
   SITI = 'siti',

@@ -54,8 +54,15 @@ export class DipendentiTabella {
   /** Rimette in anagrafica un eliminato. Non gli tocca il contratto. */
   readonly ripristina = output<DipendenteModel>();
 
-  /** Sposta in avanti la scadenza: è l'unico modo di riusare uno scaduto. */
+  /**
+   * Sposta in avanti la scadenza. È l'unico modo di riusare uno scaduto, ma si
+   * offre anche a chi è ancora in servizio con il contratto in scadenza: prolungarlo
+   * prima che finisca è il caso normale, e il backend lo prevede da sempre.
+   */
   readonly rinnova = output<DipendenteModel>();
+
+  /** Apre la pagina di modifica. Solo su chi il backend lascia modificare. */
+  readonly modifica = output<DipendenteModel>();
 
   protected readonly colonne = [
     'cognome',

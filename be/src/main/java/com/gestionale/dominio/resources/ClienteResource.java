@@ -85,9 +85,24 @@ public class ClienteResource {
     @RolesAllowed("ADMIN")
     @Operation(
             summary = "Elimina un cliente",
-            description = "Toglie il cliente dall'anagrafica. Attenzione: insieme al cliente vengono cancellati "
-                    + "anche tutti i suoi siti. Non restituisce nulla (204). Riservato agli ADMIN.")
+            description = "Il cliente sparisce da elenchi e ricerche, ma la sua riga e le ore lavorate sui suoi "
+                    + "siti restano: la cancellazione è solo logica. Se ha ancora siti attivi la richiesta viene "
+                    + "rifiutata (409) con l'elenco dei siti da sistemare prima. Ripetere la chiamata su un cliente "
+                    + "già eliminato non è un errore. Per rimetterlo in anagrafica usare /api/clienti/{id}/ripristino. "
+                    + "Non restituisce nulla (204). Riservato agli ADMIN.")
     public void elimina(@PathParam("id") Long id) {
         service.elimina(id);
+    }
+
+    @POST
+    @Path("/{id}/ripristino")
+    @RolesAllowed("ADMIN")
+    @Operation(
+            summary = "Ripristina un cliente eliminato",
+            description = "Riporta in anagrafica un cliente che era stato eliminato. I suoi siti restano come "
+                    + "sono: quelli eliminati prima non tornano su da soli, vanno ripristinati uno per uno. "
+                    + "Se il cliente non è eliminato risponde 409. Riservato agli ADMIN.")
+    public ClienteResponse ripristina(@PathParam("id") Long id) {
+        return ClienteResponse.da(service.ripristina(id));
     }
 }

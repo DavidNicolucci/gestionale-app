@@ -2,6 +2,7 @@ package com.gestionale.dominio.ai.tools;
 
 import com.gestionale.dominio.model.entity.Cliente;
 import com.gestionale.dominio.model.entity.Sito;
+import com.gestionale.dominio.model.enums.FiltroStato;
 import com.gestionale.dominio.repository.ClienteRepository;
 import com.gestionale.dominio.repository.SitoRepository;
 import dev.langchain4j.agent.tool.Tool;
@@ -31,7 +32,7 @@ public class SitoTools {
     public String elencaSiti() {
         List<Sito> trovati = siti.elencoConCliente(TestoTools.MAX_RIGHE);
 
-        return "Siti registrati: " + siti.count() + ".\n"
+        return "Siti registrati: " + siti.conta(FiltroStato.ESCLUDI_ELIMINATI) + ".\n"
                 + TestoTools.elenco(trovati, this::riga, "Nessun sito registrato.");
     }
 
@@ -51,6 +52,8 @@ public class SitoTools {
             Usalo per domande come "quali cantieri ha Acme" o "dove lavoriamo per quel cliente".
             """)
     public String sitiDelCliente(String ragioneSociale) {
+        // perRagioneSociale non filtra gli eliminati apposta: risolve un nome, non
+        // compila un elenco. Se il cliente e' eliminato lo diciamo qui sotto.
         Optional<Cliente> cliente = clienti.perRagioneSociale(ragioneSociale);
 
         if (cliente.isEmpty()) {

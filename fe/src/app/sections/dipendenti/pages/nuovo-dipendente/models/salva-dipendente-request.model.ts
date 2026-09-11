@@ -1,6 +1,6 @@
 import { FormGroup } from '@angular/forms';
 import { plainToInstance } from 'class-transformer';
-import { NuovoDipendenteFormInterface } from '../interfaces/nuovo-dipendente-form.interface';
+import { DipendenteFormInterface } from '../../../interfaces/dipendente-form.interface';
 import { TipoContratto } from '../../../enums/tipo-contratto.enum';
 import { aDataIso } from '../../../../../shared/utils/data.util';
 
@@ -22,7 +22,7 @@ export class SalvaDipendenteRequestModel {
    * `getRawValue()` e non `.value`: include anche i control disabilitati, che
    * altrimenti sparirebbero dal body.
    */
-  static generateModel(form: FormGroup<NuovoDipendenteFormInterface>): SalvaDipendenteRequestModel {
+  static generateModel(form: FormGroup<DipendenteFormInterface>): SalvaDipendenteRequestModel {
     const raw = form.getRawValue();
     const aTermine = raw.tipoContratto === TipoContratto.DETERMINATO;
 

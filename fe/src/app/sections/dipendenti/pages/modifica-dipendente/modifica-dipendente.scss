@@ -1,0 +1,77 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+  background-color: #f4f5f7;
+  /* Riferimento per lo spinner in absolute. */
+  position: relative;
+
+  /* Stesso accento dell'elenco: la sezione resta riconoscibile anche qui. */
+  --accento: var(--accento-dipendenti);
+  --mat-sys-primary: var(--accento);
+}
+
+/* Come nell'elenco: la barra d'accento è la firma della sezione. */
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  &::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 5px;
+    height: 1em;
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      var(--accento),
+      color-mix(in srgb, var(--accento) 55%, #fff)
+    );
+  }
+}
+
+.page {
+  padding: 4rem;
+}
+
+/* Allineata a sinistra sopra al contenuto della pagina. */
+.indietro {
+  display: block;
+  margin-bottom: 1.5rem;
+}
+
+.errore {
+  margin: 0.5rem 0 0;
+  color: var(--mat-sys-error);
+}
+
+.modulo {
+  display: block;
+  margin-top: 1.5rem;
+}
+
+/* Un avviso, non un errore: il dipendente c'è, solo che prima va rinnovato o
+   ripristinato. Tono dell'accento della sezione e non rosso. */
+.avviso {
+  margin: 1.5rem 0 0;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accento) 35%, transparent);
+  background: color-mix(in srgb, var(--accento) 8%, #fff);
+}
+
+/* Intercetta i click, al contrario dello spinner dell'elenco: durante il
+   caricamento e il salvataggio non si deve poter toccare il modulo. */
+.caricamento {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 1rem;
+  }
+}

@@ -2,6 +2,7 @@ package com.gestionale.dominio.ai.tools;
 
 import com.gestionale.dominio.model.entity.Cliente;
 import com.gestionale.dominio.model.entity.Sito;
+import com.gestionale.dominio.model.enums.FiltroStato;
 import com.gestionale.dominio.repository.ClienteRepository;
 import com.gestionale.dominio.repository.SitoRepository;
 import dev.langchain4j.agent.tool.Tool;
@@ -27,9 +28,14 @@ public class ClienteTools {
             Per trovare un cliente preciso usa invece cercaClienti.
             """)
     public String elencaClienti() {
-        List<Cliente> trovati = clienti.findAll().range(0, TestoTools.MAX_RIGHE - 1).list();
+        // Elenco e conteggio filtrano gli eliminati, e devono farlo tutti e due: un
+        // "clienti registrati: 25" seguito da 22 righe manderebbe il modello a
+        // inventarsi una spiegazione per i tre mancanti.
+        List<Cliente> trovati = clienti.elenco(FiltroStato.ESCLUDI_ELIMINATI)
+                .range(0, TestoTools.MAX_RIGHE - 1)
+                .list();
 
-        return "Clienti registrati: " + clienti.count() + ".\n"
+        return "Clienti registrati: " + clienti.conta(FiltroStato.ESCLUDI_ELIMINATI) + ".\n"
                 + TestoTools.elenco(trovati, this::riga, "Nessun cliente in anagrafica.");
     }
 
@@ -60,7 +66,16 @@ public class ClienteTools {
         Cliente c = trovato.get();
         List<Sito> suoiSiti = siti.perCliente(c.id);
 
-        return """
+        // La scheda risponde anche su un cliente eliminato, perche' le sue ore vecchie
+        // esistono ancora e ha senso chiederne conto. Ma va detto: senza questa riga il
+        // modello lo presenterebbe come un cliente qualsiasi.
+        String avviso = c.eliminato
+                ? "ATTENZIONE: questo cliente e' stato eliminato dall'anagrafica. Le ore lavorate"
+                        + " per lui restano valide, ma non ci si possono collegare siti nuovi."
+                        + System.lineSeparator()
+                : "";
+
+        return avviso + """
                 %s
                 - Partita IVA: %s
                 - Indirizzo: %s

@@ -70,9 +70,25 @@ public class TimesheetResource {
     @RolesAllowed("ADMIN")                   // ma cancella solo l'ADMIN
     @Operation(
             summary = "Elimina una registrazione di ore",
-            description = "Cancella definitivamente la riga di ore indicata. Non restituisce nulla (204). "
-                    + "Riservato agli ADMIN.")
+            description = "Annulla la registrazione: la riga esce da elenchi e totali ma resta sul database, "
+                    + "così si può vedere che era stata inserita e rimetterla in conto. È l'unica eliminazione "
+                    + "che toglie davvero delle ore dai riepiloghi, ed è il suo scopo: correggere un inserimento "
+                    + "sbagliato. Ripetere la chiamata su una riga già annullata non è un errore. "
+                    + "Non restituisce nulla (204). Riservato agli ADMIN.")
     public void elimina(@PathParam("id") Long id) {
         service.elimina(id);
+    }
+
+    @POST
+    @Path("/{id}/ripristino")
+    @RolesAllowed("ADMIN")
+    @Operation(
+            summary = "Ripristina una registrazione annullata",
+            description = "Rimette in conto una riga di ore che era stata annullata: torna negli elenchi e nei "
+                    + "totali. Non ricontrolla il contratto del dipendente né lo stato del sito, perché quelle "
+                    + "ore erano già state accettate quando sono state inserite. Se la riga non è annullata "
+                    + "risponde 409. Riservato agli ADMIN.")
+    public TimesheetResponse ripristina(@PathParam("id") Long id) {
+        return TimesheetResponse.da(service.ripristina(id));
     }
 }

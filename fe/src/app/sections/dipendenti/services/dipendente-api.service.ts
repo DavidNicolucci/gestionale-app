@@ -7,6 +7,7 @@ import { DipendenteRicercaRequestModel } from '../interfaces/dipendente-ricerca-
 import { RinnovoRequestModel } from '../interfaces/rinnovo-request.model';
 import { ScadenzeModel } from '../interfaces/scadenze.model';
 import { SalvaDipendenteRequestModel } from '../pages/nuovo-dipendente/models/salva-dipendente-request.model';
+import { AggiornaDipendenteRequestModel } from '../pages/modifica-dipendente/models/aggiorna-dipendente-request.model';
 import { PaginaResponseModel } from '../../../shared/interfaces/pagina-response.model';
 
 @Injectable({ providedIn: 'root' })
@@ -32,6 +33,27 @@ export class DipendenteApiService {
   async crea(dipendente: SalvaDipendenteRequestModel): Promise<DipendenteModel> {
     const post$ = this.http.post<DipendenteModel>('/api/dipendenti', dipendente);
     return plainToInstance(DipendenteModel, await firstValueFrom(post$));
+  }
+
+  /**
+   * Un dipendente solo, per riempire il form di modifica. Il backend risponde anche
+   * su scaduti ed eliminati: lo stato arriva dentro la risposta, e sta a chi la usa
+   * decidere cosa farne.
+   */
+  async dettaglio(id: number): Promise<DipendenteModel> {
+    const get$ = this.http.get<DipendenteModel>(`/api/dipendenti/${id}`);
+    return plainToInstance(DipendenteModel, await firstValueFrom(get$));
+  }
+
+  /**
+   * Modifica un dipendente. È una PATCH: viaggiano solo i campi da cambiare, e un
+   * campo assente resta com'è. Noi li mandiamo comunque tutti, perché il form li ha
+   * tutti a schermo — l'unico che si comporta diversamente è la scadenza, che per
+   * essere tolta ha bisogno di `rimuoviScadenza`.
+   */
+  async aggiorna(id: number, dipendente: AggiornaDipendenteRequestModel): Promise<DipendenteModel> {
+    const patch$ = this.http.patch<DipendenteModel>(`/api/dipendenti/${id}`, dipendente);
+    return plainToInstance(DipendenteModel, await firstValueFrom(patch$));
   }
 
   /**

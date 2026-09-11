@@ -92,7 +92,10 @@ public class DipendenteResource {
     @Operation(
             summary = "Modifica un dipendente",
             description = "Aggiorna solo i campi presenti nella richiesta: quelli che non vengono inviati restano "
-                    + "come sono. Restituisce il dipendente aggiornato. Riservato agli ADMIN.")
+                    + "come sono. Per portare un contratto a tempo indeterminato non basta omettere la scadenza "
+                    + "(sarebbe un \"non toccarla\"): serve inviare rimuoviScadenza a true. Un dipendente scaduto "
+                    + "o eliminato non si modifica (409): prima va rinnovato o ripristinato. "
+                    + "Restituisce il dipendente aggiornato. Riservato agli ADMIN.")
     public DipendenteResponse aggiorna(@PathParam("id") Long id, @Valid DipendentePatchRequest req) {
         return service.aggiorna(id, req);
     }

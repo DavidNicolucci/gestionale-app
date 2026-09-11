@@ -10,21 +10,24 @@ import {
   MatDatepickerInput,
   MatDatepickerToggle,
 } from '@angular/material/datepicker';
-import { NuovoDipendenteFormInterface } from '../../interfaces/nuovo-dipendente-form.interface';
+import { DipendenteFormInterface } from '../../interfaces/dipendente-form.interface';
 import { MESSAGGI_ERRORE } from '../../constants/messaggi-errore.constant';
-import { LUNGHEZZA_CODICE_FISCALE } from '../../../../constants/dipendente.constants';
+import { LUNGHEZZA_CODICE_FISCALE } from '../../constants/dipendente.constants';
 import {
   ETICHETTE_TIPO_CONTRATTO,
   TIPI_CONTRATTO,
   TipoContratto,
-} from '../../../../enums/tipo-contratto.enum';
+} from '../../enums/tipo-contratto.enum';
 
 /**
+ * Il modulo di un dipendente, usato sia in creazione sia in modifica: i campi e le
+ * loro regole sono gli stessi, cambia solo cosa succede quando si preme il pulsante.
+ *
  * Solo template e eventi: il form arriva già costruito dalla pagina, che è anche
  * l'unica a sapere cosa succede al salvataggio. Qui non si inietta nulla.
  */
 @Component({
-  selector: 'app-nuovo-dipendente-form',
+  selector: 'app-dipendente-form',
   imports: [
     ReactiveFormsModule,
     MatFormField,
@@ -40,8 +43,8 @@ import {
     MatDatepickerInput,
     MatDatepickerToggle,
   ],
-  templateUrl: './nuovo-dipendente-form.html',
-  styleUrl: './nuovo-dipendente-form.scss',
+  templateUrl: './dipendente-form.html',
+  styleUrl: './dipendente-form.scss',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
@@ -52,8 +55,8 @@ import {
     { provide: MAT_DATE_LOCALE, useValue: 'it-IT' },
   ],
 })
-export class NuovoDipendenteForm {
-  readonly form = input.required<FormGroup<NuovoDipendenteFormInterface>>();
+export class DipendenteForm {
+  readonly form = input.required<FormGroup<DipendenteFormInterface>>();
 
   /** Salvataggio in corso: campi e pulsanti restano fermi finché non risponde. */
   readonly inSalvataggio = input(false);
@@ -67,6 +70,13 @@ export class NuovoDipendenteForm {
    */
   readonly mostraScadenza = input(false);
 
+  /**
+   * Testo del pulsante di conferma. Lo decide la pagina: "Salva dipendente" in
+   * creazione, "Salva modifiche" in modifica. Un solo modulo, due gesti diversi, e
+   * chi lo usa deve leggere quale dei due sta facendo.
+   */
+  readonly etichettaSalva = input('Salva dipendente');
+
   readonly salva = output<void>();
   readonly annulla = output<void>();
 
@@ -78,7 +88,7 @@ export class NuovoDipendenteForm {
    * `@Past` sul backend: oggi non basta, deve essere un giorno già passato.
    * Limitando il calendario l'errore si evita invece di spiegarlo dopo il 400.
    */
-  protected readonly maxDataNascita = NuovoDipendenteForm.ieri();
+  protected readonly maxDataNascita = DipendenteForm.ieri();
 
   private static ieri(): Date {
     const data = new Date();

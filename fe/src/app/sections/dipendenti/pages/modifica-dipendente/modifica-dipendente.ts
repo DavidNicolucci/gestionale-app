@@ -7,8 +7,8 @@ import {
   Signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { map } from 'rxjs';
-import { Router } from '@angular/router';
+import { map, merge } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormGroup } from '@angular/forms';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -17,46 +17,56 @@ import { GoBack } from '../../../../shared/components/go-back/go-back';
 import { DipendenteForm } from '../../components/dipendente-form/dipendente-form';
 import { DipendenteFormInterface } from '../../interfaces/dipendente-form.interface';
 import { DipendenteFormService } from '../../services/dipendente-form.service';
-import { NuovoDipendenteQueryService } from './services/nuovo-dipendente-query.service';
+import { ModificaDipendenteQueryService } from './services/modifica-dipendente-query.service';
 import { TipoContratto } from '../../enums/tipo-contratto.enum';
 
 /**
- * Pagina di creazione dipendente: non costruisce il form, non valida e non
- * compone il body. Mette insieme i pezzi e decide dove si va dopo il salvataggio.
+ * Pagina di modifica dipendente. Stessa struttura della creazione — non costruisce
+ * il form, non valida e non compone il body — con in più il caricamento iniziale:
+ * qui i campi non nascono vuoti, arrivano da quello che è già salvato.
  */
 @Component({
-  selector: 'app-nuovo-dipendente',
+  selector: 'app-modifica-dipendente',
   imports: [GoBack, DipendenteForm, MatProgressSpinner],
-  templateUrl: './nuovo-dipendente.html',
-  styleUrl: './nuovo-dipendente.scss',
+  templateUrl: './modifica-dipendente.html',
+  styleUrl: './modifica-dipendente.scss',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // Forniti qui e non in root: form e stato del salvataggio vivono quanto la pagina.
-  providers: [DipendenteFormService, NuovoDipendenteQueryService],
+  // Forniti qui e non in root: form e stato della pagina vivono quanto la pagina.
+  providers: [DipendenteFormService, ModificaDipendenteQueryService],
 })
-export class NuovoDipendente {
+export class ModificaDipendente {
   /** Quanto resta a schermo la conferma dopo il salvataggio. */
   private static readonly DURATA_CONFERMA_MS = 4000;
+
   protected readonly form: FormGroup<DipendenteFormInterface>;
   protected readonly isSalvaDisabled: Signal<boolean>;
   /** Un contratto a termine ha una scadenza, un indeterminato no. */
   protected readonly mostraScadenza: Signal<boolean>;
-  protected readonly query = inject(NuovoDipendenteQueryService);
+  protected readonly query = inject(ModificaDipendenteQueryService);
   protected readonly AppRoute = AppRoute;
+
   private readonly tipoContratto: Signal<TipoContratto | null>;
   private readonly formService = inject(DipendenteFormService);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+  /** Letto una volta sola: la pagina non si riusa per un altro id senza ricrearsi. */
+  private readonly id = Number(this.route.snapshot.paramMap.get('id'));
 
   constructor() {
     this.form = this.formService.createMainForm();
 
-    // Da observable e non da `form.invalid` letto nel template: così il pulsante
-    // si aggiorna da solo, anche quando a invalidare il form è il backend.
-    // Parte disabilitato perché i campi obbligatori nascono vuoti.
-    this.isSalvaDisabled = toSignal(this.form.statusChanges.pipe(map(() => this.form.invalid)), {
-      initialValue: true,
-    });
+    // `merge` dei due flussi e non il solo `statusChanges` come in creazione: qui il
+    // pulsante dipende anche da `pristine`, che cambia al primo tocco su un form già
+    // valido — e in quel caso `statusChanges` non emette, perché lo stato di validità
+    // non è cambiato. Parte disabilitato: appena caricato non c'è niente da salvare.
+    this.isSalvaDisabled = toSignal(
+      merge(this.form.statusChanges, this.form.valueChanges).pipe(
+        map(() => this.form.invalid || this.form.pristine),
+      ),
+      { initialValue: true },
+    );
 
     this.tipoContratto = toSignal(this.form.controls.tipoContratto.valueChanges, {
       initialValue: null,
@@ -68,19 +78,23 @@ export class NuovoDipendente {
     // control non si rivalutano da soli quando ne cambia un altro. L'effect non
     // torna a scattare da sé: tocca `dataScadenza`, non `tipoContratto`.
     effect(() => this.formService.aggiornaScadenza(this.form, this.tipoContratto()));
+
+    void this.query.carica(this.id, this.form);
   }
 
   /** Si torna all'elenco solo se il salvataggio è andato a buon fine. */
   protected async onSalva(): Promise<void> {
-    const dipendente = await this.query.salvaDipendente(this.form);
+    const dipendente = await this.query.salva(this.id, this.form);
 
     if (!dipendente) {
       return;
     }
 
-    this.snackBar.open(`Dipendente "${dipendente.cognome} ${dipendente.nome}" creato`, 'Chiudi', {
-      duration: NuovoDipendente.DURATA_CONFERMA_MS,
-    });
+    this.snackBar.open(
+      `Dipendente "${dipendente.cognome} ${dipendente.nome}" aggiornato`,
+      'Chiudi',
+      { duration: ModificaDipendente.DURATA_CONFERMA_MS },
+    );
 
     void this.router.navigate([AppRoute.DIPENDENTI]);
   }

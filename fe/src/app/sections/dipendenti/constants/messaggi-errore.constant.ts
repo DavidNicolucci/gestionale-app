@@ -1,4 +1,4 @@
-import { LUNGHEZZA_CODICE_FISCALE } from '../../../constants/dipendente.constants';
+import { LUNGHEZZA_CODICE_FISCALE } from './dipendente.constants';
 
 /**
  * Testi degli errori di validazione del form. Non stanno in nessuna delle due

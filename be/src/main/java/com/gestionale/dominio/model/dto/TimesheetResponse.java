@@ -13,6 +13,7 @@ public class TimesheetResponse {
     public LocalDate dataLavoro;
     public BigDecimal oreLavorate;
     public String note;
+    public boolean eliminato;      // una riga annullata: resta a database ma non fa piu' totale
 
     public static TimesheetResponse da(Timesheet t) {
         TimesheetResponse r = new TimesheetResponse();
@@ -24,6 +25,7 @@ public class TimesheetResponse {
         r.dataLavoro = t.dataLavoro;
         r.oreLavorate = t.oreLavorate;
         r.note = t.note;
+        r.eliminato = t.eliminato;
         return r;
     }
 }

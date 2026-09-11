@@ -3,10 +3,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { FormGroup } from '@angular/forms';
 import { DipendenteApiService } from '../../../services/dipendente-api.service';
 import { DipendenteModel } from '../../../interfaces/dipendente.model';
-import { NuovoDipendenteFormInterface } from '../interfaces/nuovo-dipendente-form.interface';
+import { DipendenteFormInterface } from '../../../interfaces/dipendente-form.interface';
 import { SalvaDipendenteRequestModel } from '../models/salva-dipendente-request.model';
 import { ErrorResponseModel } from '../../../../../shared/interfaces/error-response.model';
-import { NuovoDipendenteFormService } from './nuovo-dipendente-form.service';
+import { DipendenteFormService } from '../../../services/dipendente-form.service';
 
 /**
  * Salvataggio del dipendente: il componente gli passa il form e legge i segnali,
@@ -31,7 +31,7 @@ export class NuovoDipendenteQueryService {
   public readonly inSalvataggio = computed(() => this._inSalvataggio());
   public readonly errorMessage = computed(() => this._errorMessage());
   private readonly dipendentiApi = inject(DipendenteApiService);
-  private readonly formService = inject(NuovoDipendenteFormService);
+  private readonly formService = inject(DipendenteFormService);
   private readonly _inSalvataggio = signal(false);
   private readonly _errorMessage = signal<string | null>(null);
 
@@ -40,7 +40,7 @@ export class NuovoDipendenteQueryService {
    * così la pagina decide se navigare guardando il valore, senza try/catch suo.
    */
   public async salvaDipendente(
-    form: FormGroup<NuovoDipendenteFormInterface>,
+    form: FormGroup<DipendenteFormInterface>,
   ): Promise<DipendenteModel | null> {
     this._inSalvataggio.set(true);
     this._errorMessage.set(null);
@@ -61,7 +61,7 @@ export class NuovoDipendenteQueryService {
    * in cima resta solo l'invito a controllarli; negli altri casi c'è solo il
    * messaggio di pagina.
    */
-  private gestisciErrore(errore: unknown, form: FormGroup<NuovoDipendenteFormInterface>): void {
+  private gestisciErrore(errore: unknown, form: FormGroup<DipendenteFormInterface>): void {
     if (!(errore instanceof HttpErrorResponse)) {
       this._errorMessage.set(NuovoDipendenteQueryService.MESSAGGI.GENERICO);
       return;

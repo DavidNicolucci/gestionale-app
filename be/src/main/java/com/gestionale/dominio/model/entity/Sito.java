@@ -22,4 +22,11 @@ public class Sito extends PanacheEntityBase {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id", nullable = false)   // colonna cliente_id nella tabella sito
     public Cliente cliente;
+
+    // Cancellazione logica. "Eliminato" qui vuol dire "non ci si lavora piu'": il sito
+    // esce dalle tendine e non accetta nuove ore. Le ore gia' registrate su di lui
+    // restano valide e nei totali, altrimenti chiudere un cantiere cancellerebbe il
+    // fatturato che ci e' stato fatto sopra.
+    @Column(name = "eliminato", nullable = false)
+    public boolean eliminato;
 }

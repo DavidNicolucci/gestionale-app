@@ -1,12 +1,14 @@
 import { FormControl } from '@angular/forms';
-import { TipoContratto } from '../../../enums/tipo-contratto.enum';
+import { TipoContratto } from '../enums/tipo-contratto.enum';
 
 /**
+ * Campi del form di un dipendente, condiviso fra creazione e modifica.
+ *
  * Le date sono `Date` e non stringhe: è il tipo con cui lavora il datepicker di
  * Material. La conversione nel `yyyy-MM-dd` del backend avviene una volta sola,
  * quando si compone il body (`SalvaDipendenteRequestModel`).
  */
-export interface NuovoDipendenteFormInterface {
+export interface DipendenteFormInterface {
   nome: FormControl<string | null>;
   cognome: FormControl<string | null>;
   codiceFiscale: FormControl<string | null>;

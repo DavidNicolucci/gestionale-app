@@ -38,11 +38,13 @@ public class TimesheetService {
     }
 
     // Non usiamo listAll perche' il DTO mostra dipendente e sito: senza caricarli
-    // insieme, ogni riga farebbe 2 query in piu'.
+    // insieme, ogni riga farebbe 2 query in piu'. Le righe annullate restano fuori.
     public List<Timesheet> listaTutti() {
         return repository.listaConRelazioni();
     }
 
+    // Risponde anche sulle righe annullate: serve a ripristinarle e a capire cosa era
+    // stato registrato. Il flag e' dentro la risposta.
     public Timesheet trovaPerId(Long id) {
         return repository.perIdConRelazioni(id)
                 .orElseThrow(() -> new NotFoundException("Timesheet " + id + " non trovato"));
@@ -62,19 +64,58 @@ public class TimesheetService {
     @Transactional
     public Timesheet aggiorna(Long id, TimesheetPatchRequest req) {
         Timesheet t = trovaPerId(id);
+
+        // Una riga annullata non si corregge: prima la si ripristina. Modificare le ore
+        // di una riga che non fa piu' totale vuol dire cambiare un numero che nessuno
+        // sta guardando, e ritrovarselo nei conti al ripristino.
+        if (t.eliminato) {
+            throw new WebApplicationException(
+                    "La registrazione " + id + " è stata annullata: ripristinala prima di correggerla", 409);
+        }
+
         applicaPatch(t, req);
         LOG.infof("Timesheet aggiornato: id=%d", id);
         // Niente persist: Hibernate vede le modifiche e fa l'UPDATE a fine transazione.
         return t;
     }
 
+    // Cancellazione logica: la riga resta sul database ma esce da elenchi e totali.
+    // E' l'unico dei tre flag che toglie davvero delle ore dai conti, ed e' il suo
+    // scopo: annullare una registrazione sbagliata lasciando la traccia che c'era.
     @Transactional
     public void elimina(Long id) {
-        boolean rimosso = repository.deleteById(id);
-        if (!rimosso) {
-            throw new NotFoundException("Timesheet " + id + " non trovato");
+        Timesheet t = trovaPerId(id);
+
+        if (t.eliminato) {
+            LOG.infof("Timesheet %d era gia' annullato: niente da fare", id);
+            return;
         }
-        LOG.infof("Timesheet eliminato: id=%d", id);
+
+        t.eliminato = true;
+        // Nel log ci mettiamo le ore e il giorno, non solo l'id: quando qualcuno chiede
+        // perche' un totale non torna, e' questa riga che glielo spiega.
+        LOG.infof("Timesheet annullato: id=%d, dipendenteId=%d, sitoId=%d, data=%s, ore=%s",
+                id, t.dipendente.id, t.sito.id, t.dataLavoro, t.oreLavorate);
+    }
+
+    // Rimette in conto una registrazione annullata.
+    //
+    // Non ricontrolliamo ne' il contratto del dipendente ne' lo stato del sito: la riga
+    // era gia' stata accettata quando e' stata inserita, e quelle ore sono un fatto
+    // avvenuto. E' la stessa ragione per cui applicaPatch non ricontrolla il contratto
+    // quando si corregge solo una nota su una riga vecchia.
+    @Transactional
+    public Timesheet ripristina(Long id) {
+        Timesheet t = trovaPerId(id);
+
+        if (!t.eliminato) {
+            throw new WebApplicationException(
+                    "La registrazione " + id + " non è annullata: non c'è niente da ripristinare", 409);
+        }
+
+        t.eliminato = false;
+        LOG.infof("Timesheet ripristinato: id=%d", id);
+        return t;
     }
 
     // Carica dipendente e sito e riempie i campi. Usato sia da crea che da aggiorna,
@@ -82,8 +123,7 @@ public class TimesheetService {
     private void applica(Timesheet t, TimesheetRequest req) {
         Dipendente dip = dipendenteRepository.findByIdOptional(req.dipendenteId)
                 .orElseThrow(() -> new NotFoundException("Dipendente " + req.dipendenteId + " non trovato"));
-        Sito sito = sitoRepository.findByIdOptional(req.sitoId)
-                .orElseThrow(() -> new NotFoundException("Sito " + req.sitoId + " non trovato"));
+        Sito sito = caricaSito(req.sitoId);
 
         vietaSeFuoriContratto(dip, req.dataLavoro);
 
@@ -102,8 +142,7 @@ public class TimesheetService {
                     .orElseThrow(() -> new NotFoundException("Dipendente " + req.dipendenteId + " non trovato"));
         }
         if (req.sitoId != null) {
-            t.sito = sitoRepository.findByIdOptional(req.sitoId)
-                    .orElseThrow(() -> new NotFoundException("Sito " + req.sitoId + " non trovato"));
+            t.sito = caricaSito(req.sitoId);
         }
         if (req.dataLavoro != null) {
             t.dataLavoro = req.dataLavoro;
@@ -126,6 +165,24 @@ public class TimesheetService {
         if (req.dipendenteId != null || req.dataLavoro != null) {
             vietaSeFuoriContratto(t.dipendente, t.dataLavoro);
         }
+    }
+
+    // Il sito su cui si registrano ore nuove deve essere ancora aperto. Le ore gia'
+    // registrate su un sito eliminato restano dove sono e continuano a contare: qui
+    // stiamo parlando solo di quello che si scrive da adesso in avanti.
+    //
+    // Il messaggio nomina il sito e dice cosa fare: "sito non trovato" manderebbe
+    // l'utente a cercare un errore di battitura che non c'e'.
+    private Sito caricaSito(Long sitoId) {
+        Sito s = sitoRepository.findByIdOptional(sitoId)
+                .orElseThrow(() -> new NotFoundException("Sito " + sitoId + " non trovato"));
+
+        if (s.eliminato) {
+            throw new WebApplicationException(
+                    "Il sito " + s.nome + " è eliminato: non ci si possono registrare ore nuove."
+                            + " Ripristinalo, oppure scegli un altro sito", 409);
+        }
+        return s;
     }
 
     // Si consuntivano ore solo su un contratto che copriva quel giorno.

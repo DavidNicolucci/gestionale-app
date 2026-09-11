@@ -76,7 +76,8 @@ CREATE TABLE cliente (
                          id              BIGINT IDENTITY(1,1) PRIMARY KEY,
                          ragione_sociale NVARCHAR(200) NOT NULL,
                          partita_iva     NVARCHAR(20)  NULL,
-                         indirizzo       NVARCHAR(250) NULL              -- sede del cliente
+                         indirizzo       NVARCHAR(250) NULL,             -- sede del cliente
+                         eliminato       BIT NOT NULL DEFAULT 0          -- cancellazione logica
 );
 GO
 
@@ -87,8 +88,9 @@ CREATE TABLE sito (
                       nome        NVARCHAR(150) NOT NULL,              -- es. 'Cantiere Via Roma', 'Boutique Centro'
                       indirizzo   NVARCHAR(250) NULL,
                       cliente_id  BIGINT NOT NULL,                     -- FK verso cliente
+                      eliminato   BIT NOT NULL DEFAULT 0,              -- cancellazione logica, come sul dipendente
                       CONSTRAINT fk_sito_cliente FOREIGN KEY (cliente_id)
-                          REFERENCES cliente(id) ON DELETE CASCADE     -- elimino il cliente -> spariscono i suoi siti
+                          REFERENCES cliente(id)                       -- NIENTE cascata: i siti non si cancellano da soli
 );
 GO
 
@@ -101,6 +103,8 @@ CREATE TABLE timesheet (
                            data_lavoro   DATE          NOT NULL,            -- giorno della prestazione
                            ore_lavorate  DECIMAL(5,2)  NOT NULL,            -- es. 7.50 ore; DECIMAL evita errori di arrotondamento
                            note          NVARCHAR(500) NULL,
+                           eliminato     BIT NOT NULL DEFAULT 0,            -- cancellazione logica: le ore restano sul database
+
                            CONSTRAINT fk_ts_dipendente FOREIGN KEY (dipendente_id)
                                REFERENCES dipendente(id),
                            CONSTRAINT fk_ts_sito FOREIGN KEY (sito_id)
@@ -108,10 +112,77 @@ CREATE TABLE timesheet (
 );
 GO
 
--- Indici sulle FK più interrogate (le query "ore di X" filtrano per dipendente e data)
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_timesheet_dipendente')
-CREATE INDEX ix_timesheet_dipendente ON timesheet(dipendente_id, data_lavoro);
+-- ============================================================
+-- CANCELLAZIONE LOGICA su cliente, sito e timesheet
+-- Le ALTER stanno qui e non dentro le CREATE TABLE sopra perche' chi ha gia' il
+-- database non lo ricrea da zero. Stesso schema della colonna 'eliminato' del
+-- dipendente: COL_LENGTH torna NULL se la colonna non c'e', quindi e' ripetibile.
+-- ============================================================
+
+IF COL_LENGTH('cliente', 'eliminato') IS NULL
+    ALTER TABLE cliente ADD eliminato BIT NOT NULL DEFAULT 0;    -- le righe esistenti diventano 0 = non eliminato
 GO
+
+IF COL_LENGTH('sito', 'eliminato') IS NULL
+    ALTER TABLE sito ADD eliminato BIT NOT NULL DEFAULT 0;
+GO
+
+IF COL_LENGTH('timesheet', 'eliminato') IS NULL
+    ALTER TABLE timesheet ADD eliminato BIT NOT NULL DEFAULT 0;
+GO
+
+-- La cascata cliente -> sito va tolta dai database che ce l'hanno gia'.
+-- Con la cancellazione logica una DELETE fisica sul cliente non parte piu', ma finche'
+-- il vincolo resta com'e' basta una query lanciata a mano sul database per portarsi via
+-- i siti in silenzio. delete_referential_action = 1 vuol dire CASCADE, 0 vuol dire
+-- NO ACTION: il blocco non fa niente se la cascata e' gia' stata tolta.
+IF EXISTS (SELECT 1 FROM sys.foreign_keys
+           WHERE name = 'fk_sito_cliente' AND delete_referential_action = 1)
+BEGIN
+    ALTER TABLE sito DROP CONSTRAINT fk_sito_cliente;
+    ALTER TABLE sito ADD CONSTRAINT fk_sito_cliente FOREIGN KEY (cliente_id)
+        REFERENCES cliente(id);
+END
+GO
+
+-- ---- Indici ----
+-- Da quando ogni lettura porta con se' "AND eliminato = 0", la colonna entra negli
+-- indici insieme alle FK. Sta subito dopo la colonna cercata per uguaglianza e prima
+-- della data, perche' SQL Server usa un indice composto finche' trova uguaglianze:
+-- (sito_id = X AND eliminato = 0) sono due uguaglianze, data_lavoro BETWEEN e' un
+-- intervallo e va per ultimo.
+--
+-- Non li facciamo filtrati (WHERE eliminato = 0): sarebbero piu' piccoli, ma un indice
+-- filtrato pretende QUOTED_IDENTIFIER ON su OGNI insert e update della tabella, e
+-- sqlcmd di default ce l'ha OFF. Il seed qui sotto smetterebbe di funzionare.
+
+-- L'indice del dipendente esisteva gia' senza 'eliminato': va rifatto, non aggiunto.
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_timesheet_dipendente')
+   AND NOT EXISTS (SELECT 1 FROM sys.index_columns ic
+                   JOIN sys.indexes i ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+                   JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+                   WHERE i.name = 'ix_timesheet_dipendente' AND c.name = 'eliminato')
+    DROP INDEX ix_timesheet_dipendente ON timesheet;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_timesheet_dipendente')
+CREATE INDEX ix_timesheet_dipendente ON timesheet(dipendente_id, eliminato, data_lavoro);
+GO
+
+-- Questo non c'era: "quante ore sul cantiere di via Roma a luglio" e "chi ha lavorato
+-- su questo sito" scorrevano tutta la tabella timesheet.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_timesheet_sito')
+CREATE INDEX ix_timesheet_sito ON timesheet(sito_id, eliminato, data_lavoro);
+GO
+
+-- Serve al controllo "il cliente ha ancora siti attivi?" che blocca l'eliminazione,
+-- e all'elenco dei siti di un cliente.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_sito_cliente')
+CREATE INDEX ix_sito_cliente ON sito(cliente_id, eliminato);
+GO
+
+-- Su cliente e sito NON mettiamo un indice sulla sola colonna 'eliminato': quasi tutte
+-- le righe valgono 0, quindi non separa niente e il motore lo ignorerebbe comunque.
 
 -- ---- Chat con l'assistente AI ----
 -- Storico integrale della conversazione, uno per utente: e' quello che il frontend

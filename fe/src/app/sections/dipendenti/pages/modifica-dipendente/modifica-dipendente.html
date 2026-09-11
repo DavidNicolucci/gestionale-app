@@ -1,0 +1,48 @@
+<div class="page">
+  <!-- Si torna sempre all'elenco, anche se ci si è arrivati da un'altra pagina. -->
+  <app-go-back class="indietro" [to]="AppRoute.DIPENDENTI" />
+
+  @let dipendente = query.dipendente();
+
+  <!-- Il nominativo nel titolo: aperta da una tabella di cinque righe uguali, è
+       l'unica cosa che dice a colpo d'occhio su chi si sta lavorando. -->
+  <h1>
+    @if (dipendente) {
+      Modifica {{ dipendente.cognome }} {{ dipendente.nome }}
+    } @else {
+      Modifica dipendente
+    }
+  </h1>
+
+  <!-- Errore di caricamento o di salvataggio: quelli dei singoli campi stanno
+       sotto ai campi. -->
+  @if (query.errorMessage()) {
+    <p class="errore">{{ query.errorMessage() }}</p>
+  }
+
+  <!-- Il dipendente esiste ma è scaduto o eliminato: il backend rifiuterebbe la
+       modifica, quindi il modulo non si mostra proprio e si dice cosa fare prima. -->
+  @if (query.bloccoModifica(); as blocco) {
+    <p class="avviso">{{ blocco }}</p>
+  } @else if (dipendente) {
+    <app-dipendente-form
+      class="modulo"
+      [form]="form"
+      [inSalvataggio]="query.inSalvataggio()"
+      [isSalvaDisabled]="isSalvaDisabled()"
+      [mostraScadenza]="mostraScadenza()"
+      etichettaSalva="Salva modifiche"
+      (salva)="onSalva()"
+      (annulla)="onAnnulla()"
+    />
+  }
+</div>
+
+<!-- Copre la pagina durante il caricamento iniziale e durante il salvataggio: in
+     tutti e due i casi i click vanno bloccati, per non far partire due modifiche
+     e per non far scrivere in un modulo che sta per essere riempito. -->
+@if (query.inCaricamento() || query.inSalvataggio()) {
+  <div class="caricamento">
+    <mat-spinner diameter="40" />
+  </div>
+}

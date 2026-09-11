@@ -295,8 +295,16 @@ public class DipendenteService {
         if (req.dataAssunzione != null) {
             d.dataAssunzione = req.dataAssunzione;
         }
+        // L'ordine conta: prima si assegna la data eventualmente arrivata, poi si guarda
+        // se va tolta. Cosi' una richiesta contraddittoria (una data nuova insieme a
+        // rimuoviScadenza) finisce nello stato piu' esplicito dei due, il contratto senza
+        // termine, invece di dipendere da quale if viene scritto prima.
         if (req.dataScadenza != null) {
             d.dataScadenza = req.dataScadenza;
+        }
+        if (req.rimuoviScadenza) {
+            d.dataScadenza = null;
+            LOG.infof("Contratto portato a tempo indeterminato: id=%d", d.id);
         }
     }
 }

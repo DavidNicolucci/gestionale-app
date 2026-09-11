@@ -85,8 +85,23 @@ public class SitoResource {
     @RolesAllowed("ADMIN")
     @Operation(
             summary = "Elimina un sito",
-            description = "Toglie il sito dall'elenco. Non restituisce nulla (204). Riservato agli ADMIN.")
+            description = "Il sito esce da elenchi e tendine e non accetta più ore nuove, ma le ore già "
+                    + "registrate su di lui restano e continuano a contare nei totali: la cancellazione è solo "
+                    + "logica. Ripetere la chiamata su un sito già eliminato non è un errore. Per rimetterlo in "
+                    + "elenco usare /api/siti/{id}/ripristino. Non restituisce nulla (204). Riservato agli ADMIN.")
     public void elimina(@PathParam("id") Long id) {
         service.elimina(id);
+    }
+
+    @POST
+    @Path("/{id}/ripristino")
+    @RolesAllowed("ADMIN")
+    @Operation(
+            summary = "Ripristina un sito eliminato",
+            description = "Rimette il sito in elenco, così torna a comparire nelle tendine e ad accettare ore. "
+                    + "Se il cliente a cui appartiene è a sua volta eliminato risponde 409: va ripristinato "
+                    + "prima quello. Se il sito non è eliminato risponde 409. Riservato agli ADMIN.")
+    public SitoResponse ripristina(@PathParam("id") Long id) {
+        return SitoResponse.da(service.ripristina(id));
     }
 }

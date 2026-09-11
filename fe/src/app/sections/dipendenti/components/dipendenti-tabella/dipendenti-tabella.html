@@ -56,56 +56,112 @@
           <td mat-cell *matCellDef="let dipendente">
             <!-- Le azioni cambiano con lo stato, perché su un dipendente non
                  utilizzabile l'unica cosa sensata è rimetterlo in servizio.
-                 Il cestino su un eliminato non farebbe niente, e il rinnovo su
-                 un attivo lo faremmo passare dalla modifica. -->
-            @switch (dipendente.stato) {
-              @case (StatoDipendente.ELIMINATO) {
-                <button
-                  class="ripristina"
-                  mat-icon-button
-                  type="button"
-                  matTooltip="Rimetti in anagrafica"
-                  [attr.aria-label]="'Ripristina ' + dipendente.cognome + ' ' + dipendente.nome"
-                  (click)="ripristina.emit(dipendente)"
-                >
-                  <mat-icon>restore_from_trash</mat-icon>
-                </button>
+                 Il cestino su un eliminato non farebbe niente, e la matita non
+                 comparirebbe su chi il backend non lascia modificare: scaduti ed
+                 eliminati devono prima passare dal rinnovo o dal ripristino.
+                 Il rinnovo invece si offre già a chi è IN_SCADENZA: è il senso
+                 dell'avviso in cima alla pagina, che dice di agire prima che il
+                 contratto finisca. Aspettare che scada vorrebbe dire lasciare
+                 scoperti i giorni in mezzo, in cui non gli si possono più
+                 consuntivare ore.
+
+                 L'ordine è sempre lo stesso e non va cambiato per comodità: il
+                 cestino ultimo a destra su ogni riga, così chi scorre la colonna
+                 lo trova sempre nello stesso punto e non lo preme al posto di
+                 un'altra azione. Prima di lui la modifica, e per primo il rinnovo,
+                 che è l'azione da fare per prima quando un contratto sta finendo. -->
+            <div class="azioni">
+              @switch (dipendente.stato) {
+                @case (StatoDipendente.ELIMINATO) {
+                  <button
+                    class="ripristina"
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Rimetti in anagrafica"
+                    [attr.aria-label]="'Ripristina ' + dipendente.cognome + ' ' + dipendente.nome"
+                    (click)="ripristina.emit(dipendente)"
+                  >
+                    <mat-icon>restore_from_trash</mat-icon>
+                  </button>
+                }
+                @case (StatoDipendente.IN_SCADENZA) {
+                  <button
+                    class="rinnova"
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Rinnova il contratto"
+                    [attr.aria-label]="'Rinnova il contratto di ' + dipendente.cognome + ' ' + dipendente.nome"
+                    (click)="rinnova.emit(dipendente)"
+                  >
+                    <mat-icon>event_repeat</mat-icon>
+                  </button>
+                  <button
+                    class="modifica"
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Modifica"
+                    [attr.aria-label]="'Modifica ' + dipendente.cognome + ' ' + dipendente.nome"
+                    (click)="modifica.emit(dipendente)"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button
+                    class="elimina"
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Elimina"
+                    [attr.aria-label]="'Elimina ' + dipendente.cognome + ' ' + dipendente.nome"
+                    (click)="elimina.emit(dipendente)"
+                  >
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                }
+                @case (StatoDipendente.SCADUTO) {
+                  <button
+                    class="rinnova"
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Rinnova il contratto"
+                    [attr.aria-label]="'Rinnova il contratto di ' + dipendente.cognome + ' ' + dipendente.nome"
+                    (click)="rinnova.emit(dipendente)"
+                  >
+                    <mat-icon>event_repeat</mat-icon>
+                  </button>
+                  <button
+                    class="elimina"
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Elimina"
+                    [attr.aria-label]="'Elimina ' + dipendente.cognome + ' ' + dipendente.nome"
+                    (click)="elimina.emit(dipendente)"
+                  >
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                }
+                @default {
+                  <button
+                    class="modifica"
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Modifica"
+                    [attr.aria-label]="'Modifica ' + dipendente.cognome + ' ' + dipendente.nome"
+                    (click)="modifica.emit(dipendente)"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button
+                    class="elimina"
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Elimina"
+                    [attr.aria-label]="'Elimina ' + dipendente.cognome + ' ' + dipendente.nome"
+                    (click)="elimina.emit(dipendente)"
+                  >
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                }
               }
-              @case (StatoDipendente.SCADUTO) {
-                <button
-                  class="rinnova"
-                  mat-icon-button
-                  type="button"
-                  matTooltip="Rinnova il contratto"
-                  [attr.aria-label]="'Rinnova il contratto di ' + dipendente.cognome + ' ' + dipendente.nome"
-                  (click)="rinnova.emit(dipendente)"
-                >
-                  <mat-icon>event_repeat</mat-icon>
-                </button>
-                <button
-                  class="elimina"
-                  mat-icon-button
-                  type="button"
-                  matTooltip="Elimina"
-                  [attr.aria-label]="'Elimina ' + dipendente.cognome + ' ' + dipendente.nome"
-                  (click)="elimina.emit(dipendente)"
-                >
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
-              }
-              @default {
-                <button
-                  class="elimina"
-                  mat-icon-button
-                  type="button"
-                  matTooltip="Elimina"
-                  [attr.aria-label]="'Elimina ' + dipendente.cognome + ' ' + dipendente.nome"
-                  (click)="elimina.emit(dipendente)"
-                >
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
-              }
-            }
+            </div>
           </td>
         </ng-container>
 

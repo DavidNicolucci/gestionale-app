@@ -1,5 +1,6 @@
 package com.gestionale.dominio.repository;
 
+import com.gestionale.dominio.model.enums.FiltroStato;
 import io.quarkus.panache.common.Parameters;
 
 // Costruisce la WHERE delle ricerche aggiungendo un pezzo alla volta.
@@ -68,6 +69,33 @@ public final class FiltriPanache {
     public FiltriPanache parametro(String nome, Object valore) {
         params.and(nome, valore);
         return this;
+    }
+
+    // Il filtro della cancellazione logica. Sta qui e non copiato in ogni repository
+    // perche' e' la condizione che non si deve poter dimenticare: un posto solo da
+    // controllare, e il nome del campo scritto una volta sola.
+    //
+    // Su cliente, sito e timesheet SOLO_ATTIVI ed ESCLUDI_ELIMINATI coincidono: non
+    // hanno una scadenza da guardare, l'unico modo di non essere attivi e' l'eliminazione.
+    // Il dipendente invece distingue i due casi e ha il suo perStato().
+    //
+    // Questa versione scrive "eliminato" senza dire di chi: va bene solo nelle query
+    // brevi di Panache, quelle con una sola entita' in gioco. In una query scritta per
+    // esteso, dove un JOIN porta dentro una seconda entita' che ha anche lei la colonna
+    // 'eliminato' (Sito e Cliente, per dire), Hibernate non sa a quale delle due ci si
+    // riferisce e rifiuta la query. In quel caso serve l'altra versione, con l'alias.
+    public FiltriPanache nonEliminati(FiltroStato stato) {
+        return nonEliminati(stato, null);
+    }
+
+    // Come sopra ma dicendo a quale entita' appartiene la colonna: "s.eliminato = false".
+    // Da usare in tutte le query scritte con "SELECT x FROM Entita x ...".
+    public FiltriPanache nonEliminati(FiltroStato stato, String alias) {
+        if (stato == FiltroStato.TUTTI) {
+            return this;
+        }
+        String campo = alias == null ? "eliminato" : alias + ".eliminato";
+        return condizione(campo + " = false");
     }
 
     public String where() {

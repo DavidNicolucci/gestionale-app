@@ -44,6 +44,14 @@ export class Dipendenti {
     void this.router.navigate([AppRoute.NUOVO_DIPENDENTE]);
   }
 
+  /**
+   * Apre la pagina di modifica. Niente conferma: si va su una pagina che si può
+   * ancora abbandonare, non parte nessuna scrittura.
+   */
+  protected onModifica(dipendente: DipendenteModel): void {
+    void this.router.navigate([AppRoute.MODIFICA_DIPENDENTE, dipendente.id]);
+  }
+
   protected onFiltri(filtri: DipendentiFiltriModel): void {
     this.query.aggiornaFiltri(filtri);
   }

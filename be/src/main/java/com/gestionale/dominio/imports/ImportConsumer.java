@@ -87,13 +87,29 @@ public class ImportConsumer {
                         // escludessimo qui, una riga intestata a un eliminato darebbe
                         // "non trovato", e chi deve correggere il file andrebbe a caccia
                         // di un codice fiscale sbagliato che sbagliato non e'.
+                        // Stesso ragionamento per il sito: lo cerchiamo fra TUTTI,
+                        // eliminati compresi, e se e' eliminato lo diciamo. Cercarlo
+                        // solo fra gli attivi darebbe "sito non trovato" per un
+                        // cantiere chiuso, e chi corregge il file cercherebbe un
+                        // errore di battitura che non c'e'.
                         Optional<Dipendente> dip =
                                 dipendenteRepo.perCodiceFiscale(cf, FiltroStato.TUTTI);
-                        Optional<Sito> sito = sitoRepo.perNome(nomeSito);
+                        Optional<Sito> sito = sitoRepo.perNome(nomeSito, FiltroStato.TUTTI);
 
                         if (dip.isEmpty() || sito.isEmpty()) {
                             LOG.warnf("Riga %d ignorata: dipendente o sito non trovato (cf=%s, sito=%s)",
                                     i, cf, nomeSito);
+                            righeErrore++;
+                            continue;
+                        }
+
+                        // Su un sito eliminato non si scrivono ore nuove, come sul
+                        // dipendente eliminato. Riga saltata e non eccezione: un file
+                        // da 500 righe non deve finire in coda di scarto per una riga
+                        // intestata a un cantiere chiuso.
+                        if (sito.get().eliminato) {
+                            LOG.warnf("Riga %d ignorata: il sito %s e' eliminato (cf=%s)",
+                                    i, nomeSito, cf);
                             righeErrore++;
                             continue;
                         }

@@ -8,6 +8,7 @@ public class SitoResponse {
     public String indirizzo;
     public Long clienteId;
     public String clienteRagioneSociale;   // cosi' il frontend mostra il nome e non solo l'id
+    public boolean eliminato;
 
     public static SitoResponse da(Sito s) {
         SitoResponse r = new SitoResponse();
@@ -16,6 +17,7 @@ public class SitoResponse {
         r.indirizzo = s.indirizzo;
         r.clienteId = s.cliente.id;
         r.clienteRagioneSociale = s.cliente.ragioneSociale;
+        r.eliminato = s.eliminato;
         return r;
     }
 }

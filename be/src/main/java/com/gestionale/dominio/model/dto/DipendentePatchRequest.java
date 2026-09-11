@@ -36,4 +36,17 @@ public class DipendentePatchRequest {
     public LocalDate dataAssunzione;
 
     public LocalDate dataScadenza;
+
+    // Azzera la scadenza, cioe' porta il contratto a tempo indeterminato.
+    //
+    // Serve un campo apposta perche' in una PATCH "campo assente" e "campo a null"
+    // arrivano uguali: sono tutti e due null, e la regola di tutti gli altri campi e'
+    // "null vuol dire non toccarlo". Senza questo, un contratto a termine non potrebbe
+    // piu' diventare indeterminato: resterebbe con addosso la vecchia data di scadenza,
+    // e il dipendente continuerebbe a risultare in scadenza o scaduto pur non avendo
+    // piu' un termine.
+    //
+    // Primitivo e non Boolean: se il client non manda il campo resta false, che e' il
+    // comportamento di prima.
+    public boolean rimuoviScadenza;
 }

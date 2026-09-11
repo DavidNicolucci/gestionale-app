@@ -108,12 +108,48 @@
 
 /* Larghezza fissa invece che stretta sul contenuto: stringendola sul cestino la
    colonna si appiccicherebbe al bordo destro e le azioni sembrerebbero fuori
-   dalla tabella. Dentro la fascia, testo e icona stanno al centro. */
+   dalla tabella. Deve contenere le tre caselle più il respiro ai lati. */
 .tabella th.mat-column-azioni,
 .tabella td.mat-column-azioni {
-  width: 10rem;
+  width: 12rem;
   text-align: center;
   white-space: nowrap;
+}
+
+/* Tre caselle fisse, una per azione, e ogni azione sta sempre nella sua: rinnovo,
+   modifica, cestino. Non basterebbe allinearle a destra — messe una di fila
+   all'altra, una riga che ha anche il rinnovo spingerebbe matita e cestino fuori
+   squadra rispetto alle righe che ne hanno due, e il cestino cambierebbe posto da
+   riga a riga. Con la griglia la casella resta dov'è anche quando è vuota, quindi
+   le icone restano incolonnate comunque.
+
+   3rem è la misura del pulsante icona di Material con `density: 0`, quella scelta
+   in styles.scss. È scritta qui e non letta da `--mat-icon-button-state-layer-size`
+   perché quella variabile Material la definisce sul pulsante stesso, non su un
+   antenato: da qui non si vede. Cambiando la densità del tema va rivista, e con lei
+   la larghezza della colonna qui sopra. */
+.azioni {
+  --lato-azione: 3rem;
+
+  display: grid;
+  grid-template-columns: repeat(3, var(--lato-azione));
+  justify-content: center;
+  justify-items: center;
+}
+
+.rinnova {
+  grid-column: 1;
+}
+
+.modifica {
+  grid-column: 2;
+}
+
+/* Ultima casella: il cestino, e il ripristino che ne prende il posto sulle righe
+   eliminate — è l'azione che annulla quel cestino, e sta dove stava lui. */
+.elimina,
+.ripristina {
+  grid-column: 3;
 }
 
 /* Grigia a riposo: sono dieci cestini in colonna, se fossero rossi la tabella
@@ -129,16 +165,19 @@
   }
 }
 
-/* Ripristino e rinnovo seguono la stessa regola del cestino: grigi finché non li
-   si punta. Al passaggio prendono il colore del loro esito — l'accento della
-   sezione per il ripristino, l'ambra della scadenza per il rinnovo — così si
-   distinguono fra loro senza colorare la tabella a riposo. */
+/* Modifica, ripristino e rinnovo seguono la stessa regola del cestino: grigi
+   finché non li si punta. Al passaggio prendono il colore del loro esito —
+   l'accento della sezione per modifica e ripristino, l'ambra della scadenza per
+   il rinnovo — così si distinguono senza colorare la tabella a riposo. */
+.modifica,
 .ripristina,
 .rinnova {
   color: var(--mat-sys-outline);
   transition: color 120ms ease;
 }
 
+.modifica:hover,
+.modifica:focus-visible,
 .ripristina:hover,
 .ripristina:focus-visible {
   color: var(--tinta);
