@@ -298,15 +298,86 @@
     },
     {
       "type": "row",
-      "title": "Sicurezza login",
+      "title": "Cache dipendenti",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 49 }
+    },
+    {
+      "type": "stat",
+      "title": "Tasso di successo della cache (5 min)",
+      "description": "La domanda a cui serve rispondere: la cache serve davvero? Una cache con poche hit e' pura perdita - occupa memoria e introduce il rischio di dati vecchi - senza risparmiare niente, e a quel punto toglierla e' meglio che tenerla. Sotto il 50% c'e' da chiedersi perche'. 'No data' vuol dire che nessuno ha chiesto dipendenti negli ultimi 5 minuti, non che la cache non funziona.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 50 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.5 },
+              { "color": "green", "value": 0.8 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (cache) (rate(cache_gets_total{application=\"gestionale-backend\", result=\"hit\"}[5m])) / sum by (cache) (rate(cache_gets_total{application=\"gestionale-backend\"}[5m]))",
+          "legendFormat": "{{cache}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Letture dalla cache per esito",
+      "description": "Le due cache separate, perche' hanno vite diverse: dipendenti-lista e' una voce sola e viene svuotata da OGNI modifica all'anagrafica, quindi un'ondata di miss dopo ogni salvataggio e' normale. dipendente-singolo invece ha una voce per ogni scheda aperta: li' le miss continue vogliono dire che nessuno riapre mai lo stesso dipendente, e la cache non sta servendo a niente.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 6, "y": 50 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (cache, result) (rate(cache_gets_total{application=\"gestionale-backend\"}[5m]))",
+          "legendFormat": "{{cache}} - {{result}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Voci tenute in cache",
+      "description": "Nessun maximum-size configurato, quindi vale il default: nessun limite. dipendenti-lista resta a 1 per costruzione; dipendente-singolo cresce quanto il numero di dipendenti aperti in dieci minuti, poi la scadenza lo fa scendere. E' questo il pannello dove si vedrebbe una crescita che non torna mai giu', cioe' il momento in cui un maximum-size servirebbe davvero.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 50 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "cache_size{application=\"gestionale-backend\"}",
+          "legendFormat": "{{cache}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Sicurezza login",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 58 }
     },
     {
       "type": "stat",
       "title": "Blocchi login (ultima ora)",
       "description": "Quante volte uno username o un IP e' stato bloccato per troppe password sbagliate. Anche uno solo merita un'occhiata: username e IP sono nel log (cerca 'Login bloccato').",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 50 },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 59 },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -334,7 +405,7 @@
       "title": "Tentativi di login per esito",
       "description": "ok = entrato, rifiutato = password sbagliata (401), bloccato = respinto senza controllare la password (429). Tanti 'rifiutato' senza nessun blocco possono voler dire un attacco distribuito su molti IP e molti username.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 50 },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 59 },
       "fieldConfig": {
         "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } },
         "overrides": [

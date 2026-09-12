@@ -33,6 +33,20 @@ public class DipendenteService {
 
     // I nomi delle cache in costanti: se li scrivessimo a mano, un errore di battitura
     // non lo segnalerebbe il compilatore e ci ritroveremmo dati vecchi senza capire perche'.
+    //
+    // La costante pero' copre solo le annotazioni qui sotto. Gli stessi due nomi vanno
+    // ripetuti a mano in application.properties (scadenza e metriche), e li' il
+    // compilatore non arriva: un nome sbagliato configura in silenzio una cache che non
+    // esiste, senza nessun errore. E' successo davvero - c'era rimasto "nome-cache",
+    // il segnaposto della documentazione - e le due cache vere sono state senza
+    // metriche finche' non se n'e' accorto qualcuno leggendo il file.
+    //
+    // Da sapere se un giorno il backend girera' su piu' di una macchina: la cache e'
+    // per processo, quindi @CacheInvalidate svuota solo quella dell'istanza che ha
+    // ricevuto la modifica. Un dipendente aggiornato sull'istanza A resterebbe vecchio
+    // sulla B fino alla scadenza. E' lo stesso limite di ProtezioneLogin e ha la stessa
+    // soluzione (una cache condivisa, tipo Redis); qui lo rende tollerabile proprio la
+    // scadenza corta di dieci minuti, che c'e' gia' per un'altra ragione.
     private static final String CACHE_LISTA = "dipendenti-lista";
     private static final String CACHE_SINGOLO = "dipendente-singolo";
 
