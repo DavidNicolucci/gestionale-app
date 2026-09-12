@@ -1,0 +1,99 @@
+# Alert sull'import timesheet, caricati da Grafana all'avvio come login.yml.
+# Leggono i contatori di MetricheImport (backend).
+#
+# PERCHE' ESISTONO. L'import e' asincrono: chi carica il file riceve 202 ("ricevuto,
+# ci lavoro dopo") e non sapra' mai com'e' finita. Se stanotte tre import falliscono,
+# import_job lo sa e /api/admin/import lo mostra - ma solo a chi va a guardare, e di
+# notte non guarda nessuno. Queste due regole sono la parte che bussa.
+#
+# Senza un contact point configurato gli alert si vedono solo in Grafana
+# (Alerting > Alert rules): per riceverli via mail o Slack va aggiunto un contact
+# point e collegato alla notification policy.
+#
+# NB: il provisioning degli alert e' letto solo all'avvio del container, quindi dopo
+# una modifica serve "docker compose restart grafana".
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: import-timesheet
+    folder: Gestionale
+    interval: 1m                         # ogni quanto Grafana valuta le regole
+    rules:
+
+      # Un file di ore non e' entrato. Nessuna attesa e nessuna soglia: a differenza
+      # delle password sbagliate, di cui un ufficio ne produce comunque qualcuna, qui
+      # anche una sola unita' e' un caricamento andato perso. Ed e' silenzioso due
+      # volte: non c'e' errore HTTP (chi ha caricato ha gia' avuto il suo 202) e non
+      # c'e' piu' nemmeno un messaggio in coda da contare, perche' ImportDlqConsumer
+      # svuota la DLQ. Se questa regola non suona, di quel file non parla nessuno.
+      - uid: import-finito-in-dlq
+        title: Import finito in coda di scarto
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(gestionale_import_dlq_total{application="gestionale-backend"}[5m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK                  # nessun dato = nessun import fallito
+        execErrState: Error
+        for: 0s                          # un file perso e' gia' il segnale: nessuna attesa
+        labels:
+          severity: critical             # piu' alto dei blocchi login: qui si perdono ore da fatturare
+        annotations:
+          summary: "Almeno un import di ore e' fallito negli ultimi 5 minuti"
+          description: "Il file NON e' stato importato e chi l'ha caricato non lo sa (la risposta era 202). Aprire GET /api/admin/import per vedere quale file, il motivo e se e' rilanciabile; il file e' ancora sul server, quindi POST /api/admin/import/{id}/rilancia lo rimette in coda senza raddoppiare le ore."
+
+      # Il segnale PRECOCE, e l'unico che arriva prima del danno.
+      #
+      # Una riprova ogni tanto e' il sistema che funziona: il database ha un singhiozzo
+      # di due secondi, il blocco viene rifatto, nessuno se ne accorge. Ma se le riprove
+      # continuano per cinque minuti di fila, quello che c'e' sotto non e' piu' un
+      # singhiozzo - e' un problema che dura, e la riprova sta solo rimandando il
+      # momento in cui i file cominceranno a finire in DLQ.
+      #
+      # Per questo la forma e' diversa dalla regola sopra: non "e' successo qualcosa"
+      # ma "sta durando". La soglia guarda un quarto d'ora per non farsi ingannare da
+      # un singolo file sfortunato, e "for: 5m" pretende che la condizione regga per
+      # cinque valutazioni consecutive. Un picco isolato non sveglia nessuno.
+      - uid: import-riprove-persistenti
+        title: Riprove dell'import che non si fermano
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(gestionale_import_riprove_total{application="gestionale-backend"}[15m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                # 5 in un quarto d'ora: con import.riprove=3 un singolo blocco sfortunato
+                # ne produce al massimo 2, quindi sopra questa soglia non e' piu' un caso.
+                - evaluator: { type: gt, params: [5] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m                          # deve REGGERE cinque minuti: il picco isolato non conta
+        labels:
+          severity: warning              # warning e non critical: qui non si e' ancora perso niente
+        annotations:
+          summary: "Le riprove dell'import vanno avanti da piu' di 5 minuti"
+          description: "I blocchi di righe continuano a fallire e a essere riprovati: il database non ha piu' un singhiozzo di qualche secondo, ha un problema che dura. Per adesso la riprova sta assorbendo tutto e gli import passano ancora, ma quando le riprove si esauriranno i file cominceranno a finire in coda di scarto. Guardare il pannello 'Riprove sui blocchi e import falliti' e il pool connessioni SQL Server."

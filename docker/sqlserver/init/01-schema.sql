@@ -6,6 +6,17 @@ GO                                    -- GO = separatore di batch in SQL Server:
 USE gestionale;                       -- Da qui in poi tutti i comandi agiscono sul database 'gestionale'
 GO
 
+-- QUOTED_IDENTIFIER acceso per tutto il resto dello script.
+-- Serve all'indice UNIQUE filtrato su timesheet (piu' sotto): SQL Server pretende
+-- questa opzione ON sia per crearlo, sia su OGNI insert/update della tabella che lo
+-- porta. sqlcmd di default la lascia OFF, quindi senza questa riga il seed in fondo
+-- allo script fallirebbe con "UPDATE failed because the following SET options have
+-- incorrect settings: 'QUOTED_IDENTIFIER'". Il driver JDBC la tiene ON da solo,
+-- quindi l'applicazione non ha bisogno di niente.
+-- L'impostazione vale per la sessione e attraversa i GO: basta metterla qui.
+SET QUOTED_IDENTIFIER ON;
+GO
+
 -- Tabella degli utenti applicativi (chi fa login)
 IF OBJECT_ID('app_user', 'U') IS NULL -- OBJECT_ID con 'U' controlla se esiste una tabella (User table) con quel nome
 CREATE TABLE app_user (
@@ -189,9 +200,11 @@ GO
 -- (sito_id = X AND eliminato = 0) sono due uguaglianze, data_lavoro BETWEEN e' un
 -- intervallo e va per ultimo.
 --
--- Non li facciamo filtrati (WHERE eliminato = 0): sarebbero piu' piccoli, ma un indice
--- filtrato pretende QUOTED_IDENTIFIER ON su OGNI insert e update della tabella, e
--- sqlcmd di default ce l'ha OFF. Il seed qui sotto smetterebbe di funzionare.
+-- Gli indici di RICERCA qui sotto non sono filtrati (niente WHERE eliminato = 0):
+-- sarebbero piu' piccoli, ma non ci servono piu' piccoli, ci servono usabili anche
+-- dalle query che gli eliminati li vogliono dentro (il dettaglio di una riga, il
+-- ripristino). L'unico filtrato e' il vincolo di unicita', che filtrato deve esserlo
+-- per forza: vedi il suo commento.
 
 -- L'indice del dipendente esisteva gia' senza 'eliminato': va rifatto, non aggiunto.
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_timesheet_dipendente')
@@ -221,6 +234,63 @@ GO
 -- Su cliente e sito NON mettiamo un indice sulla sola colonna 'eliminato': quasi tutte
 -- le righe valgono 0, quindi non separa niente e il motore lo ignorerebbe comunque.
 
+-- ---- Unicita' delle ore: un dipendente, un sito, un giorno, una riga sola ----
+-- Senza questo vincolo lo stesso file caricato due volte inserisce le ore due volte,
+-- senza nessun errore. E il doppio caricamento non e' un caso di scuola: l'upload
+-- risponde 202 ("ricevuto, ci lavoro dopo") e non dice mai com'e' finita, quindi chi
+-- non era sicuro ricarica. Su un sistema che calcola ore da fatturare il doppione non
+-- si vede finche' non lo vede il cliente.
+--
+-- Il vincolo sta sul database e non solo nel codice perche' le strade che scrivono
+-- timesheet sono due (POST /api/timesheet e l'import da Excel), piu' le query lanciate
+-- a mano: un controllo applicativo lo farebbe rispettare solo a chi passa di li'.
+--
+-- Filtrato su eliminato = 0, e non puo' essere altrimenti: la riga annullata deve poter
+-- convivere con quella che la sostituisce, e nel tempo se ne possono annullare piu' di
+-- una sullo stesso giorno. Includere 'eliminato' fra le colonne invece di filtrare non
+-- basterebbe: permetterebbe una sola riga annullata per chiave, cioe' un errore al
+-- secondo annullamento. Il costo del filtro e' il SET QUOTED_IDENTIFIER ON in cima
+-- allo script (vedi li' il perche').
+--
+-- Se il database contiene gia' dei doppioni la CREATE fallirebbe e fermerebbe tutto lo
+-- script: li contiamo prima e, se ce ne sono, lo diciamo e andiamo avanti senza creare
+-- l'indice. Vanno sistemati a mano (annullare le righe in piu' mettendo eliminato = 1)
+-- e poi basta rilanciare lo script.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'uq_timesheet_giorno')
+BEGIN
+    DECLARE @doppioni INT = (
+        SELECT COUNT(*) FROM (
+            SELECT dipendente_id, sito_id, data_lavoro
+            FROM timesheet
+            WHERE eliminato = 0
+            GROUP BY dipendente_id, sito_id, data_lavoro
+            HAVING COUNT(*) > 1
+        ) AS d
+    );
+
+    IF @doppioni > 0
+        PRINT '*** uq_timesheet_giorno NON creato: ci sono '
+              + CAST(@doppioni AS NVARCHAR(10))
+              + ' combinazioni (dipendente, sito, giorno) con piu'' di una riga attiva.'
+              + ' Annullarle a mano (eliminato = 1) e rilanciare lo script.';
+    ELSE
+        CREATE UNIQUE INDEX uq_timesheet_giorno
+            ON timesheet(dipendente_id, sito_id, data_lavoro)
+            WHERE eliminato = 0;
+END
+GO
+
+-- Query pronta per trovare i doppioni segnalati dal PRINT qui sopra:
+--
+--   SELECT d.codice_fiscale, s.nome, t.data_lavoro, COUNT(*) AS righe, SUM(t.ore_lavorate) AS ore
+--   FROM timesheet t
+--   JOIN dipendente d ON d.id = t.dipendente_id
+--   JOIN sito s       ON s.id = t.sito_id
+--   WHERE t.eliminato = 0
+--   GROUP BY d.codice_fiscale, s.nome, t.data_lavoro
+--   HAVING COUNT(*) > 1
+--   ORDER BY righe DESC;
+
 -- ---- Chat con l'assistente AI ----
 -- Storico integrale della conversazione, uno per utente: e' quello che il frontend
 -- ricarica nella chatbox. La memoria che viene passata a Gemini e' un'altra cosa
@@ -239,6 +309,70 @@ GO
 -- La chat si legge sempre come "tutti i messaggi di un utente, in ordine"
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_chat_messaggio_utente')
 CREATE INDEX ix_chat_messaggio_utente ON chat_messaggio(username, id);
+GO
+
+-- ============================================================
+-- IMPORT: il registro dei caricamenti
+-- ============================================================
+-- Una riga per ogni file caricato, dal momento dell'upload fino all'esito.
+--
+-- Prima non c'era niente del genere e mancavano tre cose insieme:
+--  1. chi caricava riceveva 202 e non sapeva piu' niente;
+--  2. un import fallito finiva in import.queue.dlq, dove nessuno guarda;
+--  3. lo stesso file caricato due volte veniva importato due volte.
+-- Le tre cose si risolvono con lo stesso registro: gli endpoint admin leggono di qui,
+-- il rilancio riparte di qui, e l'hash del file dice se quel file lo abbiamo gia' visto.
+IF OBJECT_ID('import_job', 'U') IS NULL
+CREATE TABLE import_job (
+                            id               BIGINT IDENTITY(1,1) PRIMARY KEY,
+                            file_name        NVARCHAR(255) NOT NULL,   -- nome originale, quello che riconosce chi ha caricato
+                            file_path        NVARCHAR(500) NOT NULL,   -- dove sta su disco: senza il file il rilancio non e' possibile
+                            file_hash        NVARCHAR(64)  NOT NULL,   -- SHA-256 del contenuto, in esadecimale
+                            stato            NVARCHAR(20)  NOT NULL,   -- ACCODATO / IN_CORSO / COMPLETATO / FALLITO / ABBANDONATO
+                            tentativi        INT           NOT NULL DEFAULT 0,   -- quante volte il consumer l'ha preso in carico
+                            righe_inserite   INT           NOT NULL DEFAULT 0,
+                            righe_aggiornate INT           NOT NULL DEFAULT 0,   -- riga gia' presente: ore sovrascritte, non duplicate
+                            righe_scartate   INT           NOT NULL DEFAULT 0,
+                            ultima_riga      INT           NOT NULL DEFAULT 0,   -- ultima riga del foglio gia' salvata: il rilancio riparte da qui
+                            errore           NVARCHAR(2000) NULL,                -- il motivo, scritto per chi legge l'elenco degli import falliti
+                            caricato_da      NVARCHAR(100) NULL,                 -- username di chi ha fatto l'upload
+                            -- DATETIMEOFFSET e non DATETIME2: i due campi sono Instant sull'entity, e
+                            -- Hibernate 6 mappa Instant su TIMESTAMP_UTC, cioe' datetimeoffset. Con
+                            -- DATETIME2 la validazione dello schema lo segnala a ogni avvio e il
+                            -- momento salvato perde l'informazione del fuso - che su un registro di
+                            -- "quando e' fallito questo import" e' proprio il dato che serve.
+                            -- (chat_messaggio.istante ha ancora il disallineamento: e' una tabella
+                            -- gia' popolata, si sistema quando si tocca quella.)
+                            creato_il        DATETIMEOFFSET(7) NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+                            aggiornato_il    DATETIMEOFFSET(7) NOT NULL DEFAULT SYSDATETIMEOFFSET()
+);
+GO
+
+-- Gli stati validi, come per i ruoli: uno stato inventato darebbe righe che non
+-- compaiono in nessun elenco e che nessuno andrebbe mai a cercare.
+-- COLLATE Latin1_General_BIN2 + LIKE per lo stesso motivo di ck_user_role_nome:
+-- il confronto normale accetterebbe 'fallito' e 'FALLITO ', che l'enum Java non e'.
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'ck_import_job_stato')
+ALTER TABLE import_job ADD CONSTRAINT ck_import_job_stato CHECK (
+       stato COLLATE Latin1_General_BIN2 LIKE N'ACCODATO'
+    OR stato COLLATE Latin1_General_BIN2 LIKE N'IN_CORSO'
+    OR stato COLLATE Latin1_General_BIN2 LIKE N'COMPLETATO'
+    OR stato COLLATE Latin1_General_BIN2 LIKE N'FALLITO'
+    OR stato COLLATE Latin1_General_BIN2 LIKE N'ABBANDONATO'
+);
+GO
+
+-- L'elenco admin chiede sempre "gli import in un certo stato, dal piu' recente".
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_import_job_stato')
+CREATE INDEX ix_import_job_stato ON import_job(stato, id DESC);
+GO
+
+-- L'upload chiede "ho gia' visto questo contenuto?" a ogni file caricato.
+-- NON e' unico: un file rifiutato o abbandonato deve poter essere ricaricato, quindi
+-- lo stesso hash puo' comparire piu' volte con stati diversi. A decidere e' la query
+-- (vedi ImportJobRepository.perHashGiaPreso), non il vincolo.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_import_job_hash')
+CREATE INDEX ix_import_job_hash ON import_job(file_hash, stato);
 GO
 
 -- ============================================================

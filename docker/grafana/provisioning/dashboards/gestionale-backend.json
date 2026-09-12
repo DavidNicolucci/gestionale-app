@@ -122,7 +122,7 @@
     {
       "type": "timeseries",
       "title": "Righe importate per esito",
-      "description": "Righe scartate = dipendente o sito non trovati nel file. Un picco di scartate segnala di solito un file con le colonne sbagliate.",
+      "description": "Scartate = dipendente o sito non trovati, sito eliminato, fuori contratto, cella illeggibile; un picco segnala di solito un file con le colonne sbagliate. Aggiornate = righe che esistevano gia' per quel dipendente, quel sito e quel giorno: le ore sono state corrette invece che duplicate. Un file tutto \"aggiornate\" e zero \"ok\" e' un ricaricamento, non un import nuovo.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
       "fieldConfig": {
@@ -138,16 +138,71 @@
       ]
     },
     {
+      "type": "stat",
+      "title": "File in coda di scarto (ultima ora)",
+      "description": "Ogni unita' e' un file di ore che NON e' entrato. Non lo segnala nessun errore HTTP: chi ha caricato ha gia' ricevuto 202 molto prima. Da qui si va su GET /api/admin/import, che dice quale file, perche' e se e' rilanciabile. Sopra lo zero c'e' sempre qualcosa da fare.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 23 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(gestionale_import_dlq_total{application=\"gestionale-backend\"}[1h]))",
+          "legendFormat": "in DLQ"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Riprove sui blocchi e import falliti",
+      "description": "Le riprove sono il segnale PRECOCE, ed e' il confronto fra le curve a dire cosa sta succedendo. Riprove che salgono mentre gli import continuano ad andare a buon fine = il database ha dei singhiozzi di qualche secondo e la riprova li sta assorbendo: nessuno se ne accorge, ma sta succedendo. Riprove che salgono INSIEME ai falliti = non e' piu' un singhiozzo, la riprova non basta e i file stanno finendo in coda di scarto.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 23 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(gestionale_import_riprove_total{application=\"gestionale-backend\"}[5m]))",
+          "legendFormat": "riprove sui blocchi"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(increase(gestionale_import_file_elaborati_total{application=\"gestionale-backend\", esito=\"errore\"}[5m]))",
+          "legendFormat": "import falliti"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(increase(gestionale_import_dlq_total{application=\"gestionale-backend\"}[5m]))",
+          "legendFormat": "finiti in DLQ"
+        }
+      ]
+    },
+    {
       "type": "row",
       "title": "Assistente AI",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 }
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 }
     },
     {
       "type": "timeseries",
       "title": "Durata risposta assistente (p50 / p95)",
       "description": "Misura la chiamata a Gemini, che e' esterna e si paga a token: va tenuta separata dalla latenza degli altri endpoint, altrimenti li fa sembrare tutti lenti.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
       "targets": [
         {
@@ -167,7 +222,7 @@
       "title": "Domande all'assistente",
       "description": "Il tag exception vale 'none' quando la chiamata e' andata a buon fine.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 10 } }, "overrides": [] },
       "targets": [
         {
@@ -180,14 +235,14 @@
     {
       "type": "row",
       "title": "JVM e database",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 }
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 }
     },
     {
       "type": "timeseries",
       "title": "Memoria heap usata",
       "description": "Un dente di sega regolare e' normale (allocazione + garbage collection). Un minimo che sale a ogni ciclo senza mai tornare giu' e' un memory leak.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 33 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 41 },
       "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
       "targets": [
         {
@@ -207,7 +262,7 @@
       "title": "Pool connessioni SQL Server",
       "description": "Se le connessioni in attesa smettono di essere zero il pool e' esaurito: le richieste si mettono in fila prima ancora di toccare il database.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 33 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 41 },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "targets": [
         {
@@ -231,7 +286,7 @@
       "type": "timeseries",
       "title": "Tempo speso in garbage collection",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 33 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 41 },
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
       "targets": [
         {
@@ -244,14 +299,14 @@
     {
       "type": "row",
       "title": "Sicurezza login",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 }
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 49 }
     },
     {
       "type": "stat",
       "title": "Blocchi login (ultima ora)",
       "description": "Quante volte uno username o un IP e' stato bloccato per troppe password sbagliate. Anche uno solo merita un'occhiata: username e IP sono nel log (cerca 'Login bloccato').",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 42 },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 50 },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -279,7 +334,7 @@
       "title": "Tentativi di login per esito",
       "description": "ok = entrato, rifiutato = password sbagliata (401), bloccato = respinto senza controllare la password (429). Tanti 'rifiutato' senza nessun blocco possono voler dire un attacco distribuito su molti IP e molti username.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 42 },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 50 },
       "fieldConfig": {
         "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } },
         "overrides": [

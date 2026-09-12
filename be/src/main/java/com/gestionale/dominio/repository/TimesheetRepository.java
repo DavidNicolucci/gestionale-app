@@ -119,6 +119,30 @@ public class TimesheetRepository implements PanacheRepository<Timesheet> {
                 .list();
     }
 
+    // La riga attiva per quel dipendente, quel sito e quel giorno: e' la chiave naturale
+    // del timesheet, quella su cui il database ha l'indice unico uq_timesheet_giorno.
+    //
+    // Serve a due cose che sono la stessa cosa vista da due lati: all'import, per
+    // correggere le ore invece di aggiungere un doppione quando lo stesso file viene
+    // caricato due volte; agli endpoint manuali, per rispondere 409 con una frase
+    // comprensibile invece di lasciar arrivare la violazione del vincolo come un 500.
+    //
+    // Solo le righe attive: quelle annullate non contano piu' e non devono impedire di
+    // registrare le ore giuste al posto di quelle sbagliate.
+    public Optional<Timesheet> perGiornoLavorato(Long dipendenteId, Long sitoId, LocalDate giorno) {
+        return find("dipendente.id = ?1 and sito.id = ?2 and dataLavoro = ?3 and eliminato = false",
+                dipendenteId, sitoId, giorno)
+                .firstResultOptional();
+    }
+
+    // Come sopra ma escludendo una riga: serve quando si CORREGGE una registrazione, che
+    // altrimenti risulterebbe in conflitto con se stessa.
+    public Optional<Timesheet> altroNelGiorno(Long dipendenteId, Long sitoId, LocalDate giorno, Long idDaEscludere) {
+        return find("dipendente.id = ?1 and sito.id = ?2 and dataLavoro = ?3 and eliminato = false and id <> ?4",
+                dipendenteId, sitoId, giorno, idDaEscludere)
+                .firstResultOptional();
+    }
+
     // Quante righe di ore sono appese a un sito, eliminate comprese. Serve a scriverlo
     // nel log quando il sito viene eliminato: e' il numero che dice quanta storia
     // sarebbe sparita con una cancellazione fisica.

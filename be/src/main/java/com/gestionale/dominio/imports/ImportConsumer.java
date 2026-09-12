@@ -1,212 +1,324 @@
 package com.gestionale.dominio.imports;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gestionale.dominio.model.entity.Dipendente;
-import com.gestionale.dominio.model.entity.Sito;
-import com.gestionale.dominio.model.entity.Timesheet;
-import com.gestionale.dominio.model.enums.FiltroStato;
 import com.gestionale.dominio.observability.MetricheImport;
-import com.gestionale.dominio.repository.DipendenteRepository;
-import com.gestionale.dominio.repository.SitoRepository;
-import com.gestionale.dominio.repository.TimesheetRepository;
 import io.micrometer.core.instrument.Timer;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import org.apache.poi.ss.usermodel.*;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DateUtil;
 
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
+/**
+ * Legge i file di ore messi in coda e li porta a database.
+ *
+ * COM'E' FATTO, e perche' non e' piu' un metodo solo.
+ *
+ * La lettura del foglio avviene FUORI da qualunque transazione, il salvataggio a
+ * BLOCCHI, ognuno con la sua transazione (vedi ImportEsecutore). Prima c'era un solo
+ * @Transactional su tutto il metodo, e su un file da 5.000 righe questo voleva dire una
+ * transazione aperta per minuti - con una connessione del pool occupata per tutto il
+ * tempo - e un errore alla riga 4.999 che annullava anche le 4.998 righe buone.
+ *
+ * Sugli errori di CIRCOSTANZA (connessione caduta per due secondi, deadlock, lock
+ * timeout) il blocco viene riprovato dopo un'attesa che raddoppia a ogni tentativo.
+ * failure-strategy=reject manda il messaggio in DLQ al primo fallimento, e per un file
+ * rovinato e' la cosa giusta - riprovare non serve - ma per un database che ha avuto un
+ * singhiozzo buttare via subito e' severo: un solo tentativo dopo qualche secondo lo
+ * avrebbe recuperato. La riprova sta qui e non nel broker perche' qui sappiamo DI COSA
+ * si tratta: chi decide e' ErroriTransitori, e il criterio e' "si riprova solo cio' che
+ * riconosciamo come passeggero", mai il contrario.
+ *
+ * Esaurite le riprove il messaggio viene comunque rigettato e finisce in DLQ, ma con
+ * due differenze rispetto a prima: le righe gia' salvate restano salvate, e su
+ * import_job resta scritto cos'e' successo e a che riga era arrivato. Da li' ripartono
+ * l'elenco e il rilancio di ImportAdminResource.
+ */
 @ApplicationScoped
 public class ImportConsumer {
 
     private static final Logger LOG = Logger.getLogger(ImportConsumer.class);
 
     @Inject ObjectMapper objectMapper;
-    @Inject DipendenteRepository dipendenteRepo;
-    @Inject SitoRepository sitoRepo;
-    @Inject TimesheetRepository timesheetRepo;
+    @Inject ImportEsecutore esecutore;
+    @Inject ImportJobService jobService;
     @Inject MetricheImport metriche;
+
+    /**
+     * Quante righe per transazione. E' un compromesso: piu' grande vuol dire meno
+     * commit ma transazioni piu' lunghe e piu' lavoro perso quando un blocco salta;
+     * piu' piccolo vuol dire il contrario.
+     */
+    @ConfigProperty(name = "import.blocco-righe", defaultValue = "500")
+    int dimensioneBlocco;
+
+    /** Tentativi totali su un blocco, il primo compreso. A 1 la riprova e' spenta. */
+    @ConfigProperty(name = "import.riprove", defaultValue = "3")
+    int tentativiMassimi;
+
+    /** Attesa prima della prima riprova; raddoppia a ogni tentativo successivo. */
+    @ConfigProperty(name = "import.attesa-riprova", defaultValue = "PT2S")
+    Duration attesaIniziale;
 
     // @WithSpan apre uno span figlio di quello che il connettore RabbitMQ crea alla
     // ricezione del messaggio. Il contesto di trace viaggia negli header AMQP, quindi
     // la trace e' la stessa che era partita dalla POST /api/import/timesheet: in Jaeger
     // si vede l'upload e l'elaborazione, avvenuta dopo e su un altro thread, in un'unica
     // riga temporale.
+    //
+    // NIENTE @Transactional: le transazioni le apre ImportEsecutore, un blocco per volta.
     @Incoming("import-in")              // resta in ascolto sulla coda: parte a ogni messaggio
-    @Transactional
     @WithSpan("import timesheet")
     public void elabora(String jsonMessage) {
-        String filePathToDelete = null;
-        boolean isDbOrTxError = false;
         Timer.Sample cronometro = metriche.avviaCronometro();
+
+        ImportMessage msg;
         try {
-            ImportMessage msg = objectMapper.readValue(jsonMessage, ImportMessage.class);
-            filePathToDelete = msg.filePath;
-            LOG.infof("Inizio import del file: %s", msg.fileName);
-
-            // Attributi sullo span: sono quelli che in Jaeger permettono di ritrovare
-            // la trace di UN import preciso invece di scorrerle tutte a mano.
-            Span span = Span.current();
-            span.setAttribute("import.file_name", msg.fileName);
-
-            int righeOk = 0;
-            int righeErrore = 0;
-
-            try (FileInputStream fis = new FileInputStream(msg.filePath);
-                 Workbook workbook = WorkbookFactory.create(fis)) {
-
-                Sheet sheet = workbook.getSheetAt(0);   // leggiamo solo il primo foglio
-
-                // Si parte da 1 perche' la riga 0 e' quella dei titoli delle colonne
-                for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                    Row row = sheet.getRow(i);
-                    if (row == null) continue;
-
-                    try {
-                        String cf       = getString(row.getCell(0));
-                        String nomeSito = getString(row.getCell(1));
-                        LocalDate data  = getData(row.getCell(2));
-                        BigDecimal ore  = getNumero(row.getCell(3));
-
-                        // Dipendente e sito devono gia' esistere: se non li troviamo
-                        // e' un errore nei dati del file, saltiamo la riga e andiamo avanti.
-                        //
-                        // Cerchiamo il dipendente fra TUTTI, eliminati compresi: se lo
-                        // escludessimo qui, una riga intestata a un eliminato darebbe
-                        // "non trovato", e chi deve correggere il file andrebbe a caccia
-                        // di un codice fiscale sbagliato che sbagliato non e'.
-                        // Stesso ragionamento per il sito: lo cerchiamo fra TUTTI,
-                        // eliminati compresi, e se e' eliminato lo diciamo. Cercarlo
-                        // solo fra gli attivi darebbe "sito non trovato" per un
-                        // cantiere chiuso, e chi corregge il file cercherebbe un
-                        // errore di battitura che non c'e'.
-                        Optional<Dipendente> dip =
-                                dipendenteRepo.perCodiceFiscale(cf, FiltroStato.TUTTI);
-                        Optional<Sito> sito = sitoRepo.perNome(nomeSito, FiltroStato.TUTTI);
-
-                        if (dip.isEmpty() || sito.isEmpty()) {
-                            LOG.warnf("Riga %d ignorata: dipendente o sito non trovato (cf=%s, sito=%s)",
-                                    i, cf, nomeSito);
-                            righeErrore++;
-                            continue;
-                        }
-
-                        // Su un sito eliminato non si scrivono ore nuove, come sul
-                        // dipendente eliminato. Riga saltata e non eccezione: un file
-                        // da 500 righe non deve finire in coda di scarto per una riga
-                        // intestata a un cantiere chiuso.
-                        if (sito.get().eliminato) {
-                            LOG.warnf("Riga %d ignorata: il sito %s e' eliminato (cf=%s)",
-                                    i, nomeSito, cf);
-                            righeErrore++;
-                            continue;
-                        }
-
-                        // Le ore si possono consuntivare solo su un contratto che copriva
-                        // quel giorno. Il confronto e' con la data della riga, non con
-                        // oggi: caricare a novembre il foglio di ottobre e' normale, e un
-                        // contratto finito il 31 ottobre quelle ore le copriva.
-                        //
-                        // Riga saltata e non eccezione: un file da 500 righe non deve
-                        // finire in coda di scarto per una riga intestata male.
-                        if (!dip.get().sottoContrattoIl(data)) {
-                            LOG.warnf("Riga %d ignorata: %s non era sotto contratto il %s (cf=%s)",
-                                    i, nominativo(dip.get()), data, cf);
-                            righeErrore++;
-                            continue;
-                        }
-
-                        Timesheet ts = new Timesheet();
-                        ts.dipendente = dip.get();
-                        ts.sito = sito.get();
-                        ts.dataLavoro = data;
-                        ts.oreLavorate = ore;
-                        timesheetRepo.persist(ts);
-                        righeOk++;
-
-                    } catch (Exception e) {
-                        // Se il problema e' il database inutile continuare con le altre
-                        // righe: fermiamo tutto subito.
-                        if (isDatabaseOrTransactionException(e)) {
-                            isDbOrTxError = true;
-                            throw e;
-                        }
-                        LOG.warnf("Errore sulla riga %d: %s", i, e.getMessage());
-                        righeErrore++;
-                    }
-                }
-            }
-
-            LOG.infof("Import completato (%s): %d righe inserite, %d errori",
-                    msg.fileName, righeOk, righeErrore);
-
-            span.setAttribute("import.righe_ok", righeOk);
-            span.setAttribute("import.righe_scartate", righeErrore);
-            metriche.righe(MetricheImport.ESITO_OK, righeOk);
-            metriche.righe(MetricheImport.ESITO_SCARTATA, righeErrore);
-            metriche.fileElaborato(MetricheImport.ESITO_OK);
-            metriche.ferma(cronometro, MetricheImport.ESITO_OK);
-
-            // Andato tutto bene: cancelliamo il file temporaneo
-            if (filePathToDelete != null) {
-                Files.deleteIfExists(Paths.get(filePathToDelete));
-            }
-
+            msg = objectMapper.readValue(jsonMessage, ImportMessage.class);
         } catch (Exception e) {
-            LOG.errorf(e, "Errore fatale nell'elaborazione del messaggio di import. DB Error? %b", isDbOrTxError);
-
-            // Le righe inserite finora non le contiamo: la transazione sta per essere
-            // annullata, quindi a database non ne resta nessuna e un contatore che le
-            // includesse racconterebbe di lavoro mai fatto.
+            // Messaggio illeggibile: non c'e' nessun job da aggiornare e non c'e' niente
+            // da riprovare. Va in DLQ e ci resta, ed e' giusto cosi': e' l'unico caso in
+            // cui la DLQ e' davvero l'ultimo posto dove guardare.
+            LOG.errorf(e, "Messaggio di import illeggibile, va in coda di scarto: %s", jsonMessage);
             metriche.fileElaborato(MetricheImport.ESITO_ERRORE);
             metriche.ferma(cronometro, MetricheImport.ESITO_ERRORE);
             Span.current().recordException(e);
+            throw new IllegalArgumentException("Messaggio di import illeggibile", e);
+        }
 
-            // Se il problema non e' il database (es. file rovinato) il file non serve
-            // piu' a niente: lo cancelliamo per non riempire il disco.
-            // Se invece e' il database lo teniamo, cosi' si puo' riprovare.
-            if (!isDbOrTxError && filePathToDelete != null) {
+        Optional<ImportJob> preso;
+        try {
+            preso = prendiInCarico(msg);
+        } catch (RuntimeException e) {
+            // Il database non risponde gia' al momento di prendere in carico il
+            // messaggio. Le metriche vanno incrementate lo stesso: file.elaborati
+            // {esito=errore} e' il contatore su cui si mette l'alert, e se restasse
+            // fermo proprio nel caso del database giu' l'alert non scatterebbe mai.
+            LOG.errorf(e, "Import %d: non si riesce nemmeno a prenderlo in carico", msg.jobId);
+            metriche.fileElaborato(MetricheImport.ESITO_ERRORE);
+            metriche.ferma(cronometro, MetricheImport.ESITO_ERRORE);
+            Span.current().recordException(e);
+            throw e;
+        }
+
+        if (preso.isEmpty()) {
+            // Gia' importato o abbandonato: il messaggio si accetta e si butta. Nessuna
+            // metrica di elaborazione, perche' non abbiamo elaborato niente.
+            return;
+        }
+        ImportJob job = preso.get();
+
+        Span span = Span.current();
+        span.setAttribute("import.file_name", job.fileName);
+        span.setAttribute("import.job_id", job.id);
+        span.setAttribute("import.tentativo", job.tentativi);
+
+        try {
+            EsitoBlocco esito = importa(job);
+
+            jobService.completa(job.id);
+            span.setAttribute("import.righe_ok", esito.inserite() + esito.aggiornate());
+            span.setAttribute("import.righe_scartate", esito.scartate());
+            metriche.righe(MetricheImport.ESITO_OK, esito.inserite());
+            metriche.righe(MetricheImport.ESITO_AGGIORNATA, esito.aggiornate());
+            metriche.righe(MetricheImport.ESITO_SCARTATA, esito.scartate());
+            metriche.fileElaborato(MetricheImport.ESITO_OK);
+            metriche.ferma(cronometro, MetricheImport.ESITO_OK);
+
+            LOG.infof("Import %d completato (%s): %d inserite, %d aggiornate, %d scartate",
+                    job.id, job.fileName, esito.inserite(), esito.aggiornate(), esito.scartate());
+
+            // Andato tutto bene: il file temporaneo non serve piu'.
+            cancellaFile(job);
+
+        } catch (Exception e) {
+            LOG.errorf(e, "Import %d fallito sul file %s (tentativo %d, ultima riga salvata %d)",
+                    job.id, job.fileName, job.tentativi, job.ultimaRiga);
+
+            // Il file NON si cancella, nemmeno quando l'errore e' definitivo.
+            // Prima si cancellava per non riempire il disco, ma senza il file non c'e'
+            // niente da rilanciare e nemmeno niente da guardare per capire cos'era
+            // rotto. A liberare il disco ci pensa adesso l'ADMIN, con
+            // POST /api/admin/import/{id}/abbandona, che e' anche il momento in cui
+            // qualcuno ha davvero deciso che quel file non serve piu'.
+            jobService.segnaFallito(job.id, ErroriTransitori.descrivi(e));
+
+            metriche.fileElaborato(MetricheImport.ESITO_ERRORE);
+            metriche.ferma(cronometro, MetricheImport.ESITO_ERRORE);
+            span.recordException(e);
+
+            // Rilanciamo per dire a RabbitMQ che il messaggio non e' andato a buon fine:
+            // con failure-strategy=reject viene dead-letterato su import.queue.dlq.
+            throw new RuntimeException("Errore fatale durante l'elaborazione dell'import " + job.id, e);
+        }
+    }
+
+    /**
+     * Trova il job del messaggio, o ne apre uno adesso.
+     *
+     * Il ramo senza jobId serve ai messaggi accodati PRIMA che esistesse il registro:
+     * al primo avvio dopo questa modifica, in import.queue (o gia' in DLQ) possono
+     * essercene ancora. Scartarli sarebbe la scelta comoda e sbagliata - sono file di
+     * ore veri, di cui nessuno ha avuto conferma - quindi gli si apre un job al volo e
+     * proseguono come tutti gli altri.
+     */
+    private Optional<ImportJob> prendiInCarico(ImportMessage msg) {
+        if (msg.jobId != null) {
+            return jobService.prendiInCarico(msg.jobId);
+        }
+
+        LOG.warnf("Messaggio senza jobId (accodato prima del registro): apro un job per %s", msg.fileName);
+        ImportJob job = jobService.registraUpload(
+                msg.fileName, msg.filePath, improntaSePossibile(msg.filePath), null);
+        return jobService.prendiInCarico(job.id);
+    }
+
+    // L'impronta serve a riconoscere il doppio caricamento, non a elaborare: se il file
+    // non si riesce a leggere adesso, lo dira' fra un attimo la lettura del foglio con
+    // un errore molto piu' chiaro di "non riesco a fare l'hash".
+    private String improntaSePossibile(String filePath) {
+        try {
+            return ImprontaFile.sha256(Paths.get(filePath));
+        } catch (IOException e) {
+            LOG.warnf("Impronta non calcolabile per %s: %s", filePath, e.getMessage());
+            return "sconosciuta";
+        }
+    }
+
+    /** Legge il foglio e ne salva le righe a blocchi. */
+    private EsitoBlocco importa(ImportJob job) throws IOException {
+        List<RigaImport> righe = leggiFoglio(job);
+
+        if (righe.isEmpty()) {
+            LOG.infof("Import %d: nessuna riga da elaborare oltre la %d", job.id, job.ultimaRiga);
+            return EsitoBlocco.VUOTO;
+        }
+
+        EsitoBlocco totale = EsitoBlocco.VUOTO;
+        for (int da = 0; da < righe.size(); da += dimensioneBlocco) {
+            List<RigaImport> blocco = righe.subList(da, Math.min(da + dimensioneBlocco, righe.size()));
+            EsitoBlocco esito = conRiprova(
+                    () -> esecutore.salvaBlocco(job.id, blocco),
+                    "import " + job.id + ", righe " + blocco.get(0).numeroRiga()
+                            + "-" + blocco.get(blocco.size() - 1).numeroRiga());
+            totale = totale.piu(esito);
+        }
+        return totale;
+    }
+
+    /**
+     * Esegue il salvataggio di un blocco, riprovando solo se l'errore e' passeggero.
+     *
+     * L'attesa raddoppia (2s, 4s, 8s...) invece di restare fissa: se il database sta
+     * ripartendo, tre tentativi ravvicinati lo trovano giu' tutte e tre le volte e
+     * tanto vale non averli fatti.
+     */
+    private <T> T conRiprova(Supplier<T> azione, String cosa) {
+        long attesa = attesaIniziale.toMillis();
+        for (int tentativo = 1; ; tentativo++) {
+            try {
+                return azione.get();
+            } catch (RuntimeException e) {
+                if (tentativo >= tentativiMassimi || !ErroriTransitori.transitorio(e)) {
+                    throw e;
+                }
+                LOG.warnf("Errore passeggero su %s (tentativo %d di %d), riprovo fra %d ms: %s",
+                        cosa, tentativo, tentativiMassimi, attesa, e.getMessage());
+                metriche.riprova();
+                attendi(attesa);
+                attesa *= 2;
+            }
+        }
+    }
+
+    private void attendi(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            // L'applicazione si sta fermando: si rimette il flag e si smette di insistere.
+            // Il messaggio non e' stato accettato, quindi RabbitMQ lo riconsegnera'.
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Import interrotto durante l'attesa fra due tentativi", e);
+        }
+    }
+
+    /**
+     * Converte il foglio in righe gia' pronte, senza toccare il database.
+     *
+     * Salta le righe fino a job.ultimaRiga: sono quelle che un tentativo precedente ha
+     * gia' committato. E' questo che rende il rilancio economico invece di ricominciare
+     * da capo ogni volta. Chi vuole rifare tutto usa il rilancio "dall'inizio", che
+     * azzera il segnaposto.
+     */
+    private List<RigaImport> leggiFoglio(ImportJob job) throws IOException {
+        List<RigaImport> righe = new ArrayList<>();
+        int illeggibili = 0;
+
+        try (FileInputStream fis = new FileInputStream(job.filePath);
+             Workbook workbook = WorkbookFactory.create(fis)) {
+
+            Sheet sheet = workbook.getSheetAt(0);   // leggiamo solo il primo foglio
+
+            // Si parte da 1 perche' la riga 0 e' quella dei titoli delle colonne
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                if (i <= job.ultimaRiga) {
+                    continue;                       // gia' salvata da un tentativo precedente
+                }
+                Row row = sheet.getRow(i);
+                if (row == null) continue;
+
                 try {
-                    Files.deleteIfExists(Paths.get(filePathToDelete));
-                } catch (java.io.IOException ioException) {
-                    LOG.error("Impossibile eliminare il file corrotto", ioException);
+                    righe.add(new RigaImport(i,
+                            getString(row.getCell(0)),
+                            getString(row.getCell(1)),
+                            getData(row.getCell(2)),
+                            getNumero(row.getCell(3))));
+                } catch (Exception e) {
+                    // Una data scritta male o un numero che non e' un numero fermano la
+                    // riga, non il file: un foglio da 500 righe non deve finire in coda
+                    // di scarto per una cella sbagliata.
+                    LOG.warnf("Riga %d illeggibile: %s", i, e.getMessage());
+                    illeggibili++;
                 }
             }
-
-            // Rilanciamo l'errore per dire a RabbitMQ che il messaggio non e' andato a buon fine
-            throw new RuntimeException("Errore fatale durante l'elaborazione dell'import", e);
         }
+
+        if (illeggibili > 0) {
+            // Registrate subito e non alla fine: se un blocco piu' avanti fa fallire
+            // tutto, questo numero deve essere gia' sul registro, altrimenti l'ADMIN
+            // vede un import fallito con zero righe scartate e nessun indizio.
+            jobService.aggiungiScartate(job.id, illeggibili);
+            metriche.righe(MetricheImport.ESITO_SCARTATA, illeggibili);
+        }
+
+        LOG.infof("Import %d: %d righe da elaborare, %d illeggibili, si riparte dalla %d",
+                job.id, righe.size(), illeggibili, job.ultimaRiga + 1);
+        return righe;
     }
 
-    // Guarda l'errore e tutti quelli dentro di lui per capire se arriva dal database.
-    private boolean isDatabaseOrTransactionException(Throwable e) {
-        if (e == null) return false;
-        String className = e.getClass().getName();
-        if (className.startsWith("jakarta.persistence") ||
-            className.startsWith("org.hibernate") ||
-            className.startsWith("java.sql") ||
-            className.startsWith("jakarta.transaction")) {
-            return true;
+    private void cancellaFile(ImportJob job) {
+        try {
+            Files.deleteIfExists(Paths.get(job.filePath));
+        } catch (IOException e) {
+            // L'import e' andato bene: un file rimasto sul disco non lo rende fallito.
+            LOG.warnf("Import %d completato ma il file %s non si riesce a cancellare: %s",
+                    job.id, job.filePath, e.getMessage());
         }
-        return isDatabaseOrTransactionException(e.getCause());
-    }
-
-    // Nel log mettiamo il nome e non solo il codice fiscale: chi legge l'esito
-    // dell'import deve capire chi e' senza andare a cercarlo in anagrafica.
-    private String nominativo(Dipendente d) {
-        return d.nome + " " + d.cognome;
     }
 
     // Legge una cella come testo, gestendo la cella vuota

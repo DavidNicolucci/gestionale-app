@@ -25,8 +25,24 @@ public class MetricheImport {
     /** File presi in carico dal consumer, con tag esito=ok|errore. */
     private static final String FILE_ELABORATI = "gestionale.import.file.elaborati";
 
-    /** Righe del foglio Excel, con tag esito=ok|scartata. */
+    /** Righe del foglio Excel, con tag esito=ok|aggiornata|scartata. */
     private static final String RIGHE = "gestionale.import.righe";
+
+    /**
+     * Blocchi di righe riprovati dopo un errore passeggero (connessione caduta,
+     * deadlock, lock timeout). Se questo contatore sale mentre gli import continuano ad
+     * andare a buon fine, la riprova sta facendo esattamente il suo mestiere; se sale
+     * insieme a file.elaborati{esito=errore}, il database ha un problema che dura piu'
+     * di qualche secondo e la riprova non basta piu'.
+     */
+    private static final String RIPROVE = "gestionale.import.riprove";
+
+    /**
+     * Messaggi arrivati in coda di scarto. E' il contatore su cui vale la pena mettere
+     * un alert: ogni unita' e' un file di ore che non e' entrato e che qualcuno deve
+     * rilanciare da /api/admin/import.
+     */
+    private static final String IN_DLQ = "gestionale.import.dlq";
 
     /** Quanto dura l'elaborazione di un file, con tag esito=ok|errore. */
     private static final String DURATA = "gestionale.import.durata";
@@ -34,6 +50,9 @@ public class MetricheImport {
     public static final String ESITO_OK = "ok";
     public static final String ESITO_ERRORE = "errore";
     public static final String ESITO_SCARTATA = "scartata";
+
+    /** Riga gia' presente per quel dipendente, quel sito e quel giorno: ore corrette, non duplicate. */
+    public static final String ESITO_AGGIORNATA = "aggiornata";
 
     @Inject
     MeterRegistry registry;
@@ -63,5 +82,13 @@ public class MetricheImport {
 
     public void ferma(Timer.Sample cronometro, String esito) {
         cronometro.stop(registry.timer(DURATA, "esito", esito));
+    }
+
+    public void riprova() {
+        registry.counter(RIPROVE).increment();
+    }
+
+    public void messaggioInDlq() {
+        registry.counter(IN_DLQ).increment();
     }
 }

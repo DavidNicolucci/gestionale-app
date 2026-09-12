@@ -54,6 +54,7 @@ public class TimesheetService {
     public Timesheet crea(TimesheetRequest req) {
         Timesheet t = new Timesheet();
         applica(t, req);
+        vietaDoppione(t.dipendente.id, t.sito.id, t.dataLavoro, null);
         repository.persist(t);
         LOG.infof("Timesheet creato: id=%d, dipendenteId=%d, data=%s, ore=%s",
                 t.id, req.dipendenteId, req.dataLavoro, req.oreLavorate);
@@ -72,6 +73,20 @@ public class TimesheetService {
             throw new WebApplicationException(
                     "La registrazione " + id + " è stata annullata: ripristinala prima di correggerla", 409);
         }
+
+        // Il controllo del doppione va PRIMA di toccare la riga, e non e' pignoleria:
+        // appena t viene modificato, la prima query sui timesheet fa scattare il flush
+        // di Hibernate, che manderebbe l'UPDATE al database e si prenderebbe la
+        // violazione del vincolo al posto nostro - cioe' un 500 al posto di un 409 con
+        // scritto cosa fare.
+        //
+        // I tre valori sono quelli che avra' la riga ALLA FINE: un campo non inviato
+        // resta com'e'.
+        vietaDoppione(
+                req.dipendenteId != null ? req.dipendenteId : t.dipendente.id,
+                req.sitoId != null ? req.sitoId : t.sito.id,
+                req.dataLavoro != null ? req.dataLavoro : t.dataLavoro,
+                t.id);
 
         applicaPatch(t, req);
         LOG.infof("Timesheet aggiornato: id=%d", id);
@@ -112,6 +127,13 @@ public class TimesheetService {
             throw new WebApplicationException(
                     "La registrazione " + id + " non è annullata: non c'è niente da ripristinare", 409);
         }
+
+        // Mentre questa riga era annullata, qualcuno puo' aver registrato le ore giuste
+        // per lo stesso giorno: e' anzi la sequenza normale (annullo quella sbagliata,
+        // inserisco quella buona). Rimetterla in conto adesso farebbe due registrazioni
+        // sullo stesso giorno, che e' proprio quello che uq_timesheet_giorno vieta.
+        // Anche qui il controllo precede la modifica, per la ragione spiegata in aggiorna.
+        vietaDoppione(t.dipendente.id, t.sito.id, t.dataLavoro, t.id);
 
         t.eliminato = false;
         LOG.infof("Timesheet ripristinato: id=%d", id);
@@ -183,6 +205,33 @@ public class TimesheetService {
                             + " Ripristinalo, oppure scegli un altro sito", 409);
         }
         return s;
+    }
+
+    // Un dipendente, un sito, un giorno: una riga sola.
+    //
+    // La regola vive sul database (indice unico uq_timesheet_giorno) perche' le strade
+    // che scrivono timesheet sono piu' di una. Questo metodo non la sostituisce, la
+    // ANTICIPA: senza, la violazione arriverebbe comunque, ma come eccezione di
+    // Hibernate tradotta in 500 e con un messaggio che parla di indici. Qui invece si
+    // dice quale riga c'e' gia' e cosa farne.
+    //
+    // idDaEscludere e' la riga che si sta modificando: senza escluderla, correggere le
+    // ore di una registrazione la farebbe risultare in conflitto con se stessa.
+    private void vietaDoppione(Long dipendenteId, Long sitoId, LocalDate giorno, Long idDaEscludere) {
+        java.util.Optional<Timesheet> esistente = (idDaEscludere == null)
+                ? repository.perGiornoLavorato(dipendenteId, sitoId, giorno)
+                : repository.altroNelGiorno(dipendenteId, sitoId, giorno, idDaEscludere);
+
+        if (esistente.isEmpty()) {
+            return;
+        }
+
+        Timesheet altro = esistente.get();
+        throw new WebApplicationException(
+                "Per quel dipendente, su quel sito, il " + giorno + " ci sono gia' "
+                        + altro.oreLavorate + " ore registrate (riga " + altro.id + ")."
+                        + " Correggi quella riga invece di aggiungerne una seconda:"
+                        + " due registrazioni sullo stesso giorno raddoppierebbero le ore da fatturare", 409);
     }
 
     // Si consuntivano ore solo su un contratto che copriva quel giorno.
