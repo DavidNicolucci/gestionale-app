@@ -17,6 +17,23 @@ CREATE TABLE app_user (
 );
 GO
 
+-- Contatore delle sessioni valide dell'utente ("epoca" del token). Il numero finisce
+-- dentro il JWT al login e viene riconfrontato con questa colonna a ogni richiesta:
+-- se qui il numero cambia, tutti i token emessi prima non valgono piu'.
+--
+-- Serve perche' il JWT e' senza stato: una volta firmato resta valido fino alla
+-- scadenza e il server non ha modo di "ritirarlo". Senza questa colonna, chi esce
+-- (logout) o chi si vede cambiare la password lascerebbe in giro un token che
+-- funziona ancora per ore. Incrementarlo e' il modo di dire "da adesso quei token
+-- non valgono piu'", senza tenere in memoria l'elenco dei token emessi.
+--
+-- ALTER separata e non dentro la CREATE: chi ha gia' il database non ripassa dalla
+-- CREATE. Il DEFAULT 0 vale anche per le righe che ci sono gia'.
+IF COL_LENGTH('app_user', 'token_epoch') IS NULL
+ALTER TABLE app_user ADD token_epoch INT NOT NULL
+    CONSTRAINT df_app_user_token_epoch DEFAULT 0;
+GO
+
 -- Tabella che collega ogni utente ai suoi ruoli (un utente può averne più di uno)
 IF OBJECT_ID('app_user_role', 'U') IS NULL
 CREATE TABLE app_user_role (

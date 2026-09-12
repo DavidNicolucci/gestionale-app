@@ -290,8 +290,8 @@ Tutte le rotte stanno sotto `/api`. Salvo diversa indicazione: **lettura** `ADMI
 
 | Metodo | Rotta | Note |
 |---|---|---|
-| `POST` | `/api/auth/login` | pubblico; imposta il cookie `gestionale_jwt` (HttpOnly, Secure, SameSite=Strict, 8h) |
-| `POST` | `/api/auth/logout` | azzera il cookie |
+| `POST` | `/api/auth/login` | pubblico; imposta il cookie `gestionale_jwt` (HttpOnly, Secure, SameSite=Strict). La sessione si rinnova a ogni chiamata: scade dopo 30 min di inattività, e comunque 12 h dopo l'accesso |
+| `POST` | `/api/auth/logout` | azzera il cookie e **revoca il token**: una copia presa altrove smette di funzionare subito |
 | `GET` | `/api/auth/me` | utente della sessione corrente |
 | `GET` `POST` | `/api/clienti` · `/api/dipendenti` · `/api/siti` · `/api/timesheet` | elenco semplice · creazione |
 | `POST` | `/api/{risorsa}/ricerca` | ricerca paginata con filtri → `PaginaResponse<T>` |

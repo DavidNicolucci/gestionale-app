@@ -1,5 +1,6 @@
 package com.gestionale.dominio.security.service;
 
+import com.gestionale.dominio.auth.service.RevocaSessioni;
 import com.gestionale.dominio.security.entity.AppRole;
 import com.gestionale.dominio.security.entity.AppUser;
 import com.gestionale.dominio.security.model.CreateUserRequest;
@@ -8,6 +9,7 @@ import com.gestionale.dominio.security.model.UserResponse;
 
 import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.WebApplicationException;
 
@@ -19,6 +21,9 @@ import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class UserService {
+
+    @Inject
+    RevocaSessioni revocaSessioni;
 
     // @Transactional: tutte le INSERT (utente + ruoli) stanno in un'unica transazione.
     // Se qualcosa va storto a meta', si annulla tutto e non resta un utente senza ruoli.
@@ -87,6 +92,13 @@ public class UserService {
         AppUser utente = AppUser.<AppUser>findByIdOptional(userId)
                 .orElseThrow(() -> new WebApplicationException("Utente non trovato", 404));
         utente.password = BcryptUtil.bcryptHash(nuovaPassword);
+
+        // La password si cambia soprattutto quando si teme che qualcuno la conosca.
+        // Se i token gia' emessi restassero validi, chi e' entrato con la vecchia
+        // password continuerebbe a lavorare per ore come se niente fosse: cambiarla
+        // e chiudere le sessioni aperte sono la stessa operazione.
+        revocaSessioni.revoca(utente, "cambio password");
+
         // Essendo un'entita' gestita dentro la transazione, la modifica viene
         // salvata in automatico al commit: non serve chiamare persist().
     }

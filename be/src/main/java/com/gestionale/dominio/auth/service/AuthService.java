@@ -3,13 +3,11 @@ package com.gestionale.dominio.auth.service;
 import com.gestionale.dominio.auth.model.Autenticazione;
 import com.gestionale.dominio.security.entity.AppUser;
 import io.quarkus.elytron.security.common.BcryptUtil;
-import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -24,13 +22,12 @@ public class AuthService {
     private static final String HASH_CIVETTA =
             "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
-    private final String issuer;      // chi emette il token, letto dalla configurazione
+    private final EmissioneToken emissione;
     private final ProtezioneLogin protezione;
 
     @Inject
-    public AuthService(@ConfigProperty(name = "mp.jwt.verify.issuer") String issuer,
-                       ProtezioneLogin protezione) {
-        this.issuer = issuer;
+    public AuthService(EmissioneToken emissione, ProtezioneLogin protezione) {
+        this.emissione = emissione;
         this.protezione = protezione;
     }
 
@@ -68,12 +65,20 @@ public class AuthService {
                     .map(r -> r.roleName)
                     .collect(Collectors.toSet());
 
-            // 5. Crea il token e lo firma
-            String token = Jwt.issuer(issuer)
-                    .upn(username)                       // chi e' l'utente
-                    .groups(ruoli)                       // i ruoli che poi legge @RolesAllowed
-                    .expiresIn(Duration.ofHours(8))      // dopo 8 ore va rifatto il login
-                    .sign();                             // firma con la nostra chiave privata
+            // 5. Crea il token e lo firma. Dentro ci finisce anche user.tokenEpoch:
+            //    e' la "generazione" delle sessioni di questo utente, e verra'
+            //    ricontrollata a ogni richiesta per poter chiudere la sessione prima
+            //    della scadenza (vedi RevocaSessioni).
+            //    La sessione poi si rinnova da sola finche' l'utente lavora: il token
+            //    dura sessione.inattivita e viene riemesso a ogni richiesta dal
+            //    FiltroSessione, fino al tetto di sessione.durata-massima.
+            Instant inizioSessione = emissione.adesso();
+            EmissioneToken.Sessione sessione = emissione.emetti(username, ruoli, user.tokenEpoch, inizioSessione)
+                    // Vuoto vorrebbe dire "sessione gia' finita nell'istante in cui
+                    // nasce": succede solo con una configurazione senza senso
+                    // (inattivita' o durata massima a zero), ed e' un errore nostro.
+                    .orElseThrow(() -> new WebApplicationException(
+                            "Durata della sessione configurata a zero", 500));
 
             // Lo diciamo solo adesso: se la firma del token fallisse, l'utente non
             // sarebbe entrato e non avrebbe senso azzerargli i fallimenti.
@@ -81,7 +86,7 @@ public class AuthService {
 
             // I ruoli tornano anche fuori dal token: il frontend non puo' leggere il
             // cookie, quindi senza questo non saprebbe cosa mostrare all'utente.
-            return new Autenticazione(token, ruoli);
+            return new Autenticazione(sessione.token(), sessione.scadenza(), ruoli);
         }
     }
 }

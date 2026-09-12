@@ -30,6 +30,12 @@ public class AppUser extends PanacheEntityBase {
     @Column(name = "enabled", nullable = false)
     public boolean enabled;
 
+    // "Epoca" delle sessioni valide: il valore viene copiato dentro il token al
+    // login e ricontrollato a ogni richiesta. Incrementarlo invalida di colpo tutti
+    // i token gia' emessi per questo utente (vedi RevocaSessioni).
+    @Column(name = "token_epoch", nullable = false)
+    public int tokenEpoch;
+
     @Roles                            // qui ci sono i ruoli dell'utente
     @OneToMany
     @JoinColumn(name = "user_id")     // colonna user_id nella tabella app_user_role
