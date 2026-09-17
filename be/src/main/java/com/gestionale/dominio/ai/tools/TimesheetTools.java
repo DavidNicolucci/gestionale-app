@@ -9,6 +9,7 @@ import com.gestionale.dominio.repository.DipendenteRepository;
 import com.gestionale.dominio.repository.OrePeriodo;
 import com.gestionale.dominio.repository.SitoRepository;
 import com.gestionale.dominio.repository.TimesheetRepository;
+import com.gestionale.dominio.observability.ToolMisurato;
 import dev.langchain4j.agent.tool.Tool;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -25,6 +26,7 @@ import java.util.Optional;
  * modello: su un mese di consuntivi sarebbero migliaia. Sono tutte letture.
  */
 @ApplicationScoped
+@ToolMisurato          // conta le chiamate del modello a ogni @Tool qui sotto
 public class TimesheetTools {
 
     @Inject

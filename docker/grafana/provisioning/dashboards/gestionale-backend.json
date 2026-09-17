@@ -233,16 +233,52 @@
       ]
     },
     {
+      "type": "timeseries",
+      "title": "Strumenti usati dall'assistente",
+      "description": "Quale @Tool il modello sceglie per rispondere. Serve a due decisioni: una curva sempre a zero e' uno strumento che nessuno usa, cioe' descrizione e parametri che occupano posto nel prompt a ogni domanda e si pagano a token; una curva alta su uno strumento che non c'entra con quello che gli utenti chiedono vuol dire che il modello lo sceglie a sproposito, e li' non si tocca il codice ma la descrizione del @Tool, che e' l'unica cosa che legge per decidere. I contatori esistono a zero dall'avvio, quindi uno strumento mai chiamato si vede lo stesso.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 40 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (nome) (increase(gestionale_ai_tool_total{application=\"gestionale-backend\"}[5m]))",
+          "legendFormat": "{{nome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Domande dentro e oltre il tetto",
+      "description": "Le domande all'assistente divise per esito: ok = girata a Gemini, oltre-soglia = rifiutata con 429 da ProtezioneChat, quindi a costo zero. Le due curve vanno lette insieme: qualche rifiuto ogni tanto e' il tetto che fa il suo mestiere, una curva arancione che sta sempre sopra vuol dire che chat.limite.ora e chat.limite.giorno sono tarati troppo stretti per come si lavora davvero. I 429 nelle metriche HTTP ci sono gia', ma mescolati con quelli del login, che raccontano il contrario: li' e' qualcuno che prova a entrare, qui e' qualcuno che lavora.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 40 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ok" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+          { "matcher": { "id": "byName", "options": "oltre-soglia" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (esito) (increase(gestionale_ai_domande_total{application=\"gestionale-backend\"}[5m]))",
+          "legendFormat": "{{esito}}"
+        }
+      ]
+    },
+    {
       "type": "row",
       "title": "JVM e database",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 }
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 48 }
     },
     {
       "type": "timeseries",
       "title": "Memoria heap usata",
       "description": "Un dente di sega regolare e' normale (allocazione + garbage collection). Un minimo che sale a ogni ciclo senza mai tornare giu' e' un memory leak.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 41 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 49 },
       "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
       "targets": [
         {
@@ -262,7 +298,7 @@
       "title": "Pool connessioni SQL Server",
       "description": "Se le connessioni in attesa smettono di essere zero il pool e' esaurito: le richieste si mettono in fila prima ancora di toccare il database.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 41 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 49 },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "targets": [
         {
@@ -286,7 +322,7 @@
       "type": "timeseries",
       "title": "Tempo speso in garbage collection",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 41 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 49 },
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
       "targets": [
         {
@@ -299,14 +335,14 @@
     {
       "type": "row",
       "title": "Cache dipendenti",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 49 }
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 57 }
     },
     {
       "type": "stat",
       "title": "Tasso di successo della cache (5 min)",
       "description": "La domanda a cui serve rispondere: la cache serve davvero? Una cache con poche hit e' pura perdita - occupa memoria e introduce il rischio di dati vecchi - senza risparmiare niente, e a quel punto toglierla e' meglio che tenerla. Sotto il 50% c'e' da chiedersi perche'. 'No data' vuol dire che nessuno ha chiesto dipendenti negli ultimi 5 minuti, non che la cache non funziona.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 50 },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 58 },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -336,7 +372,7 @@
       "title": "Letture dalla cache per esito",
       "description": "Le due cache separate, perche' hanno vite diverse: dipendenti-lista e' una voce sola e viene svuotata da OGNI modifica all'anagrafica, quindi un'ondata di miss dopo ogni salvataggio e' normale. dipendente-singolo invece ha una voce per ogni scheda aperta: li' le miss continue vogliono dire che nessuno riapre mai lo stesso dipendente, e la cache non sta servendo a niente.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 6, "y": 50 },
+      "gridPos": { "h": 8, "w": 12, "x": 6, "y": 58 },
       "fieldConfig": {
         "defaults": { "unit": "short", "custom": { "fillOpacity": 10 } },
         "overrides": []
@@ -354,7 +390,7 @@
       "title": "Voci tenute in cache",
       "description": "Nessun maximum-size configurato, quindi vale il default: nessun limite. dipendenti-lista resta a 1 per costruzione; dipendente-singolo cresce quanto il numero di dipendenti aperti in dieci minuti, poi la scadenza lo fa scendere. E' questo il pannello dove si vedrebbe una crescita che non torna mai giu', cioe' il momento in cui un maximum-size servirebbe davvero.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 50 },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 58 },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": []
@@ -370,14 +406,14 @@
     {
       "type": "row",
       "title": "Sicurezza login",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 58 }
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 66 }
     },
     {
       "type": "stat",
       "title": "Blocchi login (ultima ora)",
       "description": "Quante volte uno username o un IP e' stato bloccato per troppe password sbagliate. Anche uno solo merita un'occhiata: username e IP sono nel log (cerca 'Login bloccato').",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 59 },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 67 },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -405,7 +441,7 @@
       "title": "Tentativi di login per esito",
       "description": "ok = entrato, rifiutato = password sbagliata (401), bloccato = respinto senza controllare la password (429). Tanti 'rifiutato' senza nessun blocco possono voler dire un attacco distribuito su molti IP e molti username.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 59 },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 67 },
       "fieldConfig": {
         "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } },
         "overrides": [
@@ -425,14 +461,14 @@
     {
       "type": "row",
       "title": "Sessione (accesso continuo)",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 67 }
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 75 }
     },
     {
       "type": "stat",
       "title": "Chiusure anomale (ultima ora)",
       "description": "Sessioni chiuse per un motivo che NON e' una revoca voluta: utente sparito dal database o token di formato vecchio (senza token_epoch). A regime deve stare a zero: sopra lo zero c'e' qualcosa che non torna fra token emessi e utenti sul database. 'disattivato' non e' contato qui, perche' e' il sistema che fa il suo mestiere.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 68 },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 76 },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -460,7 +496,7 @@
       "title": "Rinnovi della sessione per esito",
       "description": "E' il pannello che dice se la sessione scorrevole funziona. 'rinnovata' = il token e' stato rifirmato con la scadenza spostata avanti; 'troppo-presto' = dall'ultima firma non e' ancora passato sessione.rinnovo-minimo (1 minuto), ed e' giusto che sia la curva piu' alta; 'tetto-raggiunto' = sessione.durata-massima (12H) esaurita, li' l'utente torna alla pagina di accesso. Traffico che continua con 'rinnovata' a zero vuol dire che il rinnovo non scatta piu': fra mezz'ora sono tutti fuori.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 68 },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 76 },
       "fieldConfig": {
         "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
         "overrides": [
@@ -482,7 +518,7 @@
       "title": "Sessioni chiuse per motivo",
       "description": "I 401 che decide FiltroSessione, divisi per causa: nelle metriche HTTP finirebbero tutti nello stesso mucchio insieme ai cookie scaduti. revocata = logout o cambio password (normale), disattivato = account spento mentre la sessione era aperta, sconosciuto = utente non piu' sul database, senza-epoca = token emesso prima che esistesse il controllo (si vede solo al primo avvio dopo l'aggiornamento).",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 76 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 84 },
       "fieldConfig": {
         "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } },
         "overrides": [
@@ -505,7 +541,7 @@
       "title": "Revoche e 401 da token revocato",
       "description": "Le due curve vanno lette insieme, come le riprove dell'import. Ogni revoca (logout, cambio password) si porta dietro qualche 401: le richieste gia' partite e le altre schede o dispositivi dello stesso utente, perche' la revoca vale per l'utente e non per il singolo accesso. Se pero' i 401 restano molto sopra le revoche, gli utenti vengono buttati fuori senza che nessuno abbia revocato niente: il sospetto e' la cache di sessione.cache-stato (in memoria, quindi non condivisa fra istanze) o token vecchi rimasti in giro.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 76 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 84 },
       "fieldConfig": {
         "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
         "overrides": [

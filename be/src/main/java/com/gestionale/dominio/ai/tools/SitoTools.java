@@ -5,6 +5,7 @@ import com.gestionale.dominio.model.entity.Sito;
 import com.gestionale.dominio.model.enums.FiltroStato;
 import com.gestionale.dominio.repository.ClienteRepository;
 import com.gestionale.dominio.repository.SitoRepository;
+import com.gestionale.dominio.observability.ToolMisurato;
 import dev.langchain4j.agent.tool.Tool;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -17,6 +18,7 @@ import java.util.Optional;
  * (cantieri, negozi, sedi). Ogni sito appartiene a un cliente. Sono tutte letture.
  */
 @ApplicationScoped
+@ToolMisurato          // conta le chiamate del modello a ogni @Tool qui sotto
 public class SitoTools {
 
     @Inject

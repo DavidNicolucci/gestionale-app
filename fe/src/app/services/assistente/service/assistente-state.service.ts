@@ -2,6 +2,7 @@ import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AssistenteApiService } from './assistente-api.service';
 import { MessaggioChatModel } from '../interfaces/messaggio-chat.model';
+import { ErrorResponseModel } from '../../../shared/interfaces/error-response.model';
 import { AuthService } from '../../auth/service/auth.service';
 
 /**
@@ -19,6 +20,7 @@ export class AssistenteStateService {
     NON_AUTORIZZATO: "Non hai i permessi per usare l'assistente",
     STORICO: 'Non sono riuscito a recuperare la conversazione precedente',
     GENERICO: 'Nessuna risposta, riprova',
+    TROPPE_DOMANDE: 'Hai raggiunto il limite di domande. Riprova più tardi',
   } as const;
 
   public readonly aperto = computed(() => this._aperto());
@@ -81,8 +83,9 @@ export class AssistenteStateService {
       const risposta = await this.api.invia(testo);
       this._messaggi.update((messaggi) => [...messaggi, risposta]);
     } catch (errore) {
-      // La domanda resta a schermo: il backend l'ha comunque salvata, e così
-      // si può riformularla senza riscriverla da capo.
+      // La domanda resta a schermo, così si può riformularla senza riscriverla da
+      // capo. Il backend l'ha anche salvata, tranne quando risponde 429: lì non è
+      // mai partita, e ricaricando la pagina non si ritrova.
       this._errorMessage.set(this.messaggioPerErrore(errore));
     } finally {
       this._inAttesa.set(false);
@@ -113,10 +116,28 @@ export class AssistenteStateService {
   }
 
   private messaggioPerErrore(errore: unknown): string {
-    if (errore instanceof HttpErrorResponse && (errore.status === 401 || errore.status === 403)) {
-      return AssistenteStateService.MESSAGGI.NON_AUTORIZZATO;
+    if (!(errore instanceof HttpErrorResponse)) {
+      return AssistenteStateService.MESSAGGI.GENERICO;
     }
 
-    return AssistenteStateService.MESSAGGI.GENERICO;
+    switch (errore.status) {
+      case 401:
+      case 403:
+        return AssistenteStateService.MESSAGGI.NON_AUTORIZZATO;
+      case 429:
+        // Il tetto alle domande (`chat.limite.*` sul backend). Qui il messaggio del
+        // server vale più del nostro: dice fra quanto si libera il posto, e senza
+        // quel dettaglio l'utente non sa se riprovare fra un minuto o domani.
+        return this.messaggioDalServer(errore) ?? AssistenteStateService.MESSAGGI.TROPPE_DOMANDE;
+      default:
+        return AssistenteStateService.MESSAGGI.GENERICO;
+    }
+  }
+
+  /** Il `message` di ErrorResponse, se c'è: il body potrebbe anche non essere il nostro. */
+  private messaggioDalServer(errore: HttpErrorResponse): string | null {
+    const messaggio = (errore.error as ErrorResponseModel | null)?.message;
+
+    return typeof messaggio === 'string' && messaggio.trim() ? messaggio : null;
   }
 }

@@ -5,6 +5,7 @@ import com.gestionale.dominio.model.enums.FiltroStato;
 import com.gestionale.dominio.model.enums.StatoDipendente;
 import com.gestionale.dominio.repository.DipendenteRepository;
 import dev.langchain4j.agent.tool.P;
+import com.gestionale.dominio.observability.ToolMisurato;
 import dev.langchain4j.agent.tool.Tool;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -33,6 +34,7 @@ import java.util.Optional;
  * Sono tutte letture: l'assistente non modifica niente.
  */
 @ApplicationScoped
+@ToolMisurato          // conta le chiamate del modello a ogni @Tool qui sotto
 public class DipendenteTools {
 
     @Inject

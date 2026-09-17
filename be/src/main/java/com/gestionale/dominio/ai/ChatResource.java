@@ -20,6 +20,9 @@ public class ChatResource {
     @Inject
     ConversazioneService conversazione;
 
+    @Inject
+    ProtezioneChat protezione;
+
     // L'identita' viene da qui e non dal body: e' il cookie firmato, che il
     // client non puo' falsificare.
     @Inject
@@ -31,8 +34,13 @@ public class ChatResource {
             summary = "Fai una domanda all'assistente",
             description = "Invia una domanda scritta in italiano e restituisce la risposta dell'assistente. "
                     + "La conversazione e' legata all'utente loggato, quindi l'assistente ricorda le domande "
-                    + "precedenti fatte nella stessa sessione.")
+                    + "precedenti fatte nella stessa sessione. Il numero di domande per utente e' limitato "
+                    + "(chat.limite.ora, chat.limite.giorno): oltre il tetto risponde 429 con Retry-After.")
     public ChatMessaggioResponse chat(@Valid ChatRequest richiesta) {
+        // Prima di tutto il resto: una domanda oltre il tetto non deve nemmeno finire
+        // nello storico, o l'utente se la ritroverebbe nella chat senza risposta.
+        protezione.nuovaDomanda(jwt.getName());
+
         return ChatMessaggioResponse.da(conversazione.rispondi(jwt.getName(), richiesta.domanda));
     }
 
