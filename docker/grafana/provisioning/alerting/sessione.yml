@@ -1,0 +1,117 @@
+# Alert sulla sessione, caricati da Grafana all'avvio come login.yml e import.yml.
+# Leggono i contatori di MetricheSessione (backend).
+#
+# PERCHE' ESISTONO. La sessione e' "scorrevole": il token viene rifirmato mentre si
+# lavora, cosi' chi ha una giornata davanti non viene buttato fuori a orologio. E'
+# comodo finche' funziona, ed e' proprio per questo che va sorvegliato: se il rinnovo
+# smette di scattare non succede niente di visibile: nessun errore, nessun 5xx. Poi,
+# mezz'ora dopo (sessione.inattivita), tutti insieme tornano alla pagina di accesso e
+# la spiegazione arriva dagli utenti al telefono invece che da qui.
+#
+# Senza un contact point configurato gli alert si vedono solo in Grafana
+# (Alerting > Alert rules): per riceverli via mail o Slack va aggiunto un contact
+# point e collegato alla notification policy.
+#
+# NB: il provisioning degli alert e' letto solo all'avvio del container, quindi dopo
+# una modifica serve "docker compose restart grafana".
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: sessione
+    folder: Gestionale
+    interval: 1m                         # ogni quanto Grafana valuta le regole
+    rules:
+
+      # Il rinnovo non scatta piu'.
+      #
+      # La regola non guarda un contatore da sola, ne confronta due: quante volte il
+      # filtro e' passato (A, tutti gli esiti) e quante ha davvero rifirmato un token
+      # (B). Un solo numero non basterebbe: "zero rinnovi" di notte e' normale, perche'
+      # non c'e' nessuno; zero rinnovi con il traffico acceso e' un guasto.
+      #
+      # La soglia di 100 passaggi in un quarto d'ora serve solo a dire "c'e' qualcuno
+      # che lavora": e' poco piu' di un utente attivo, quindi non fa scattare niente
+      # nelle ore vuote. Il "for: 5m" evita l'allarme nella finestra in cui tutti i
+      # token sono appena stati firmati e nessuno ha ancora superato sessione.rinnovo-minimo.
+      - uid: sessione-rinnovo-fermo
+        title: La sessione scorrevole non si rinnova piu'
+        condition: D
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(gestionale_sessione_rinnovi_total{application="gestionale-backend"}[15m]))
+          - refId: B
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: B
+              instant: true
+              expr: sum(increase(gestionale_sessione_rinnovi_total{application="gestionale-backend", esito="rinnovata"}[15m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: math
+              # 1 quando c'e' traffico ma nessun token e' stato rifirmato, 0 altrimenti
+              expression: ($A > 100) && ($B == 0)
+          - refId: D
+            datasourceUid: __expr__
+            model:
+              refId: D
+              type: threshold
+              expression: C
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK                  # nessun dato = nessuno collegato, non e' un problema
+        execErrState: Error
+        for: 5m                          # deve REGGERE: non e' un evento, e' uno stato
+        labels:
+          severity: warning              # non si e' ancora perso niente, ma sta per succedere
+        annotations:
+          summary: "Il rinnovo della sessione non scatta da piu' di 5 minuti"
+          description: "Il filtro continua a vedere richieste autenticate ma non rifirma piu' nessun token: la sessione scorrevole si e' fermata. Nessuno se ne accorge adesso, ma i token in giro scadono entro sessione.inattivita (30 minuti) e da quel momento tutti tornano alla pagina di accesso. Guardare il pannello 'Rinnovi della sessione per esito' e il log del backend per eccezioni in EmissioneToken (tipicamente la chiave privata privateKey.pem non piu' leggibile)."
+
+      # Sessioni chiuse per un motivo che non dovrebbe capitare.
+      #
+      # Dei quattro motivi di 401 del filtro, due sono il sistema che funziona:
+      # "revocata" (logout, cambio password) e "disattivato" (un account spento
+      # apposta). Gli altri due no. "sconosciuto" e' un token valido e firmato da noi
+      # che parla di un utente non piu' sul database; "senza-epoca" e' un token senza
+      # il claim token_epoch, cioe' emesso prima che il controllo delle revoche
+      # esistesse: si vede al primo avvio dopo l'aggiornamento e poi mai piu'.
+      #
+      # Se ricompaiono, qualcosa non torna fra i token in giro e gli utenti sul
+      # database: soglia zero, come per il file finito in DLQ.
+      - uid: sessione-chiusa-senza-motivo
+        title: Sessioni chiuse per un motivo anomalo
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(gestionale_sessione_chiuse_total{application="gestionale-backend", motivo=~"sconosciuto|senza-epoca"}[5m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s                          # a regime e' zero: la prima unita' e' gia' il segnale
+        labels:
+          severity: warning
+        annotations:
+          summary: "Almeno una sessione chiusa per utente sconosciuto o token senza epoca"
+          description: "Un token firmato da noi e' stato respinto perche' l'utente non e' piu' sul database (sconosciuto) o perche' il token non porta il claim token_epoch (senza-epoca). Il primo caso vuol dire un utente cancellato con la sessione ancora aperta; il secondo, fuori dal primo avvio dopo un aggiornamento, vuol dire token emessi da codice vecchio. Guardare il pannello 'Sessioni chiuse per motivo'."

@@ -421,6 +421,109 @@
           "legendFormat": "{{esito}}"
         }
       ]
+    },
+    {
+      "type": "row",
+      "title": "Sessione (accesso continuo)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 67 }
+    },
+    {
+      "type": "stat",
+      "title": "Chiusure anomale (ultima ora)",
+      "description": "Sessioni chiuse per un motivo che NON e' una revoca voluta: utente sparito dal database o token di formato vecchio (senza token_epoch). A regime deve stare a zero: sopra lo zero c'e' qualcosa che non torna fra token emessi e utenti sul database. 'disattivato' non e' contato qui, perche' e' il sistema che fa il suo mestiere.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 68 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(gestionale_sessione_chiuse_total{application=\"gestionale-backend\", motivo=~\"sconosciuto|senza-epoca\"}[1h]))",
+          "legendFormat": "chiusure anomale"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Rinnovi della sessione per esito",
+      "description": "E' il pannello che dice se la sessione scorrevole funziona. 'rinnovata' = il token e' stato rifirmato con la scadenza spostata avanti; 'troppo-presto' = dall'ultima firma non e' ancora passato sessione.rinnovo-minimo (1 minuto), ed e' giusto che sia la curva piu' alta; 'tetto-raggiunto' = sessione.durata-massima (12H) esaurita, li' l'utente torna alla pagina di accesso. Traffico che continua con 'rinnovata' a zero vuol dire che il rinnovo non scatta piu': fra mezz'ora sono tutti fuori.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 68 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "rinnovata" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+          { "matcher": { "id": "byName", "options": "troppo-presto" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] },
+          { "matcher": { "id": "byName", "options": "tetto-raggiunto" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (esito) (increase(gestionale_sessione_rinnovi_total{application=\"gestionale-backend\"}[1m]))",
+          "legendFormat": "{{esito}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Sessioni chiuse per motivo",
+      "description": "I 401 che decide FiltroSessione, divisi per causa: nelle metriche HTTP finirebbero tutti nello stesso mucchio insieme ai cookie scaduti. revocata = logout o cambio password (normale), disattivato = account spento mentre la sessione era aperta, sconosciuto = utente non piu' sul database, senza-epoca = token emesso prima che esistesse il controllo (si vede solo al primo avvio dopo l'aggiornamento).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 76 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "revocata" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] },
+          { "matcher": { "id": "byName", "options": "disattivato" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }] },
+          { "matcher": { "id": "byName", "options": "sconosciuto" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+          { "matcher": { "id": "byName", "options": "senza-epoca" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }] }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (motivo) (increase(gestionale_sessione_chiuse_total{application=\"gestionale-backend\"}[1m]))",
+          "legendFormat": "{{motivo}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Revoche e 401 da token revocato",
+      "description": "Le due curve vanno lette insieme, come le riprove dell'import. Ogni revoca (logout, cambio password) si porta dietro qualche 401: le richieste gia' partite e le altre schede o dispositivi dello stesso utente, perche' la revoca vale per l'utente e non per il singolo accesso. Se pero' i 401 restano molto sopra le revoche, gli utenti vengono buttati fuori senza che nessuno abbia revocato niente: il sospetto e' la cache di sessione.cache-stato (in memoria, quindi non condivisa fra istanze) o token vecchi rimasti in giro.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 76 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "401 da token revocato" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (motivo) (increase(gestionale_sessione_revoche_total{application=\"gestionale-backend\"}[5m]))",
+          "legendFormat": "revoche ({{motivo}})"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(increase(gestionale_sessione_chiuse_total{application=\"gestionale-backend\", motivo=\"revocata\"}[5m]))",
+          "legendFormat": "401 da token revocato"
+        }
+      ]
     }
   ]
 }
