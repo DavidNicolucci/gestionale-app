@@ -2,6 +2,7 @@ package com.gestionale.dominio.auth.service;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.gestionale.dominio.observability.MetricheSessione;
 import com.gestionale.dominio.security.entity.AppUser;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -58,9 +59,12 @@ public class RevocaSessioni {
     }
 
     private final Cache<String, Optional<Stato>> cache;
+    private final MetricheSessione metriche;
 
     @Inject
-    public RevocaSessioni(@ConfigProperty(name = "sessione.cache-stato") Duration durataCache) {
+    public RevocaSessioni(@ConfigProperty(name = "sessione.cache-stato") Duration durataCache,
+                          MetricheSessione metriche) {
+        this.metriche = metriche;
         this.cache = Caffeine.newBuilder()
                 // Senza tetto, un token con un upn inventato per ogni richiesta
                 // riempirebbe la memoria di risultati vuoti. In pratica le chiavi sono
@@ -101,6 +105,7 @@ public class RevocaSessioni {
         cache.invalidate(chiave(username));
         if (righe > 0) {
             LOG.infof("Sessioni revocate per %s (%s)", username, motivo);
+            metriche.revocata(motivo);
         }
     }
 
@@ -114,6 +119,7 @@ public class RevocaSessioni {
         utente.tokenEpoch++;
         cache.invalidate(chiave(utente.username));
         LOG.infof("Sessioni revocate per %s (%s)", utente.username, motivo);
+        metriche.revocata(motivo);
     }
 
     /**

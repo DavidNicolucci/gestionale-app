@@ -2,6 +2,7 @@ package com.gestionale.dominio.auth.filter;
 
 import com.gestionale.dominio.auth.service.EmissioneToken;
 import com.gestionale.dominio.auth.service.RevocaSessioni;
+import com.gestionale.dominio.observability.MetricheSessione;
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
 import jakarta.json.JsonNumber;
@@ -65,6 +66,9 @@ public class FiltroSessione implements ContainerRequestFilter, ContainerResponse
     @Inject
     EmissioneToken emissione;
 
+    @Inject
+    MetricheSessione metriche;
+
     @ConfigProperty(name = "sessione.rinnovo-minimo")
     Duration rinnovoMinimo;
 
@@ -88,6 +92,7 @@ public class FiltroSessione implements ContainerRequestFilter, ContainerResponse
                 && stato.get().attivo()
                 && stato.get().tokenEpoch() == epocaNelToken.get();
         if (!valida) {
+            metriche.chiusa(motivoChiusura(epocaNelToken, stato));
             throw sessioneChiusa();
         }
 
@@ -113,6 +118,7 @@ public class FiltroSessione implements ContainerRequestFilter, ContainerResponse
     private void preparaRinnovo(ContainerRequestContext richiesta, String username, int epoca) {
         Instant emessoIl = Instant.ofEpochSecond(jwt.getIssuedAtTime());
         if (Duration.between(emessoIl, emissione.adesso()).compareTo(rinnovoMinimo) < 0) {
+            metriche.rinnovo(MetricheSessione.RINNOVO_TROPPO_PRESTO);
             return;                       // rifirmare adesso non sposterebbe quasi niente
         }
 
@@ -124,11 +130,34 @@ public class FiltroSessione implements ContainerRequestFilter, ContainerResponse
                 .orElse(emessoIl);
 
         Set<String> ruoli = jwt.getGroups();
-        emissione.emetti(username, ruoli, epoca, inizioSessione)
-                .map(emissione::cookie)
+        Optional<EmissioneToken.Sessione> nuova = emissione.emetti(username, ruoli, epoca, inizioSessione);
+        nuova.map(emissione::cookie)
                 .ifPresent(nuovo -> richiesta.setProperty(COOKIE_DA_RINNOVARE, nuovo));
         // Se il token non viene emesso siamo al tetto massimo: si lascia scadere
         // quello che c'e', cosi' la sessione finisce da sola e si ripassa dal login.
+        metriche.rinnovo(nuova.isPresent()
+                ? MetricheSessione.RINNOVO_FATTO
+                : MetricheSessione.RINNOVO_TETTO);
+    }
+
+    /**
+     * Perche' il token e' stato respinto. Sono quattro storie diverse che nelle
+     * metriche HTTP finirebbero tutte nello stesso 401: la revoca voluta (logout,
+     * cambio password), l'account spento, l'utente sparito e il token di un formato
+     * vecchio. Solo la prima e' normale.
+     */
+    private static String motivoChiusura(Optional<Integer> epocaNelToken,
+                                         Optional<RevocaSessioni.Stato> stato) {
+        if (epocaNelToken.isEmpty()) {
+            return MetricheSessione.CHIUSA_SENZA_EPOCA;
+        }
+        if (stato.isEmpty()) {
+            return MetricheSessione.CHIUSA_SCONOSCIUTO;
+        }
+        if (!stato.get().attivo()) {
+            return MetricheSessione.CHIUSA_DISATTIVATO;
+        }
+        return MetricheSessione.CHIUSA_REVOCATA;
     }
 
     private static boolean haGiaIlCookieDiSessione(ContainerResponseContext risposta) {
