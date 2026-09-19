@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
-import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import {
   MatDatepicker,
   MatDatepickerInput,
@@ -50,9 +50,8 @@ import { aDataIso } from '../../../../shared/utils/data.util';
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     // Come nel form di creazione: senza adapter il datepicker non sa leggere né
-    // scrivere le date, e senza locale il calendario esce in inglese.
+    // scrivere le date. La lingua arriva da app.config.ts.
     provideNativeDateAdapter(),
-    { provide: MAT_DATE_LOCALE, useValue: 'it-IT' },
   ],
 })
 export class RinnovoDialog {

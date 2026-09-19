@@ -4,7 +4,7 @@ import { MatError, MatFormField, MatHint, MatLabel, MatSuffix } from '@angular/m
 import { MatInput } from '@angular/material/input';
 import { MatButton } from '@angular/material/button';
 import { MatSelect } from '@angular/material/select';
-import { MatOption, provideNativeDateAdapter, MAT_DATE_LOCALE } from '@angular/material/core';
+import { MatOption, provideNativeDateAdapter } from '@angular/material/core';
 import {
   MatDatepicker,
   MatDatepickerInput,
@@ -49,10 +49,9 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     // Il datepicker non ha un adapter di default: senza questo non sa leggere né
-    // scrivere le date. Locale italiano, altrimenti il calendario esce in inglese
-    // e il campo si scrive nel formato americano.
+    // scrivere le date. La lingua non si ripete qui: `MAT_DATE_LOCALE` arriva
+    // da app.config.ts e l'adapter la prende da lì.
     provideNativeDateAdapter(),
-    { provide: MAT_DATE_LOCALE, useValue: 'it-IT' },
   ],
 })
 export class DipendenteForm {
