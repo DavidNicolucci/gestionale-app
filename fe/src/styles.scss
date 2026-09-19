@@ -6,6 +6,15 @@
 @use '@angular/material' as mat;
 @import 'bootstrap/dist/css/bootstrap-grid.min.css';
 
+// Font e icone vengono dai pacchetti npm, non da Google: l'app funziona offline
+// e nessuna schermata fa partire una richiesta verso l'esterno con l'IP di chi
+// la sta usando. I pesi sono i tre che il tema chiede (`typography: Roboto`);
+// delle icone serve la sola variante piena, quella che usano i `<mat-icon>`.
+@import '@fontsource/roboto/300.css';
+@import '@fontsource/roboto/400.css';
+@import '@fontsource/roboto/500.css';
+@import 'material-icons/iconfont/filled.css';
+
 html {
   height: 100%;
   @include mat.theme(
