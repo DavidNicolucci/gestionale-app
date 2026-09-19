@@ -1,0 +1,84 @@
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # I file sono gia' compressi in partenza, ma Angular produce testo (js, css,
+    # json) e su rete lenta la differenza si sente.
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    # -----------------------------------------------------------------------
+    # Le chiamate al backend.
+    #
+    # L'applicazione chiede `/api/...` in relativo, come faceva col proxy del
+    # dev-server. Senza questo blocco nginx cercherebbe un file `/api/auth/me`
+    # fra quelli statici, non lo troverebbe, e la regola qui sotto gli
+    # servirebbe l'index.html: il frontend riceverebbe una pagina HTML dove si
+    # aspetta del JSON, con un errore che non dice niente di utile.
+    #
+    # Sta prima della regola generale perche' nginx sceglie il prefisso piu'
+    # lungo che combacia.
+    # -----------------------------------------------------------------------
+    location /api/ {
+        # Il nome del backend va risolto a ogni richiesta, non una volta sola
+        # all'avvio. Scritto come `proxy_pass ${API_UPSTREAM}` diretto, nginx lo
+        # risolve mentre parte e, se in quel momento il backend non esiste,
+        # muore con "host not found in upstream" - il frontend non si alza
+        # nemmeno per servire i file statici, che col backend non c'entrano
+        # niente. Passando per una variabile la risoluzione diventa pigra: il
+        # container parte comunque, e un backend spento diventa un 502 sulle
+        # sole chiamate API.
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
+        set $api_upstream ${API_UPSTREAM};
+
+        proxy_pass $api_upstream;
+        proxy_http_version 1.1;
+
+        # Senza questi, il backend vede tutte le richieste arrivare da nginx:
+        # nei log e nei rate limit sparirebbe chi le ha fatte davvero.
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Il cookie di sessione e' HttpOnly e viaggia da solo, ma va lasciato
+        # passare in entrambe le direzioni.
+        proxy_pass_request_headers on;
+    }
+
+    # -----------------------------------------------------------------------
+    # I file con l'impronta nel nome (main-A1B2C3D4.js) sono immutabili per
+    # definizione: se il contenuto cambia, cambia il nome. Si possono tenere in
+    # cache per sempre.
+    # -----------------------------------------------------------------------
+    location ~* \.(js|css|woff2?|png|jpg|jpeg|gif|svg|ico)$ {
+        # Una sola direttiva e non `expires 1y` insieme a `add_header`: quelle
+        # due mandano due Cache-Control diversi nella stessa risposta.
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # -----------------------------------------------------------------------
+    # Il rovescio del routing lato client.
+    #
+    # Le rotte dell'applicazione (/dipendenti/nuovo, /login, ...) non sono file:
+    # esistono solo dentro Angular, che le legge dalla barra degli indirizzi
+    # dopo essere partito. Se l'utente ci arriva di rimbalzo - segnalibro, F5,
+    # link incollato - nginx cerca quel percorso su disco e risponde 404.
+    #
+    # `try_files` gli dice: prova il file, prova la cartella, e se non trovi
+    # niente servi comunque l'index.html. Da li' in poi decide Angular.
+    #
+    # L'index.html non va mai messo in cache: e' l'unico file senza impronta nel
+    # nome, ed e' quello che elenca tutti gli altri. Se il browser tiene quello
+    # vecchio, dopo un rilascio va a cercare file che non esistono piu'.
+    # -----------------------------------------------------------------------
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache";
+    }
+}

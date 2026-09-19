@@ -29,6 +29,20 @@ scrape_configs:
     # Sulla porta dell'applicazione ci sarebbero il redirect verso HTTPS e un
     # certificato self-signed che Prometheus rifiuterebbe.
 
+  # ---- Lo stesso backend, ma quando gira in container ----
+  # Con `docker compose --profile app up` il backend non sta piu' sull'host: sta
+  # nella rete di Docker e si chiama per nome. Sono due job separati perche' le
+  # due modalita' si escludono, e ne resta sempre uno DOWN: quello DOWN dice
+  # semplicemente in che modalita' NON stai girando.
+  - job_name: gestionale-backend-container
+    metrics_path: /q/metrics
+
+    static_configs:
+      - targets:
+          - backend:9000
+        labels:
+          servizio: backend
+
   # ---- Prometheus che misura se stesso ----
   # Utile per accorgersi se e' lui ad essere in difficolta' (scrape lenti, memoria).
   - job_name: prometheus

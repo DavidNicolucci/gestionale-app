@@ -96,8 +96,75 @@ services:                                    # Elenco dei container che compongo
       - prometheus                           # anche se Prometheus non risponde subito
       - jaeger
 
+  # ==========================================================
+  # L'APPLICAZIONE - backend e frontend in container
+  # ==========================================================
+  # Stanno sotto il profilo "app" e quindi NON partono con `docker compose up`:
+  # il giro di tutti i giorni resta quello di prima, infrastruttura in Docker e
+  # backend sull'host con quarkus:dev.
+  #
+  #   docker compose up                  -> solo infrastruttura (come sempre)
+  #   docker compose --profile app up    -> anche backend e frontend
+  #
+  # Le due modalita' si escludono: in profilo "app" non si lancia quarkus:dev,
+  # altrimenti due backend si contendono le stesse porte e la stessa coda.
+
+  backend:                                   # L'applicazione Quarkus impacchettata (be/Dockerfile)
+    profiles: ["app"]                        # Senza --profile app questo servizio non esiste
+    build:
+      context: ./be
+    container_name: gestionale-backend
+    depends_on:
+      sqlserver:
+        condition: service_healthy           # Il DB deve rispondere, non solo essere avviato
+      sqlserver-init:
+        condition: service_completed_successfully   # E lo schema deve essere gia' stato creato
+      rabbitmq:
+        condition: service_started           # RabbitMQ non ha healthcheck: basta che sia partito
+    environment:
+      # In application.properties questi puntano a localhost, che dentro un container
+      # e' il container stesso. Quarkus legge le variabili d'ambiente prima del file,
+      # quindi qui si riscrivono senza toccare il codice.
+      QUARKUS_DATASOURCE_JDBC_URL: "jdbc:sqlserver://sqlserver:1433;databaseName=gestionale;encrypt=true;trustServerCertificate=true"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      RABBITMQ_HOST: rabbitmq                # Il nome del servizio: lo risolve la rete di Docker
+      RABBITMQ_USERNAME: "${RABBITMQ_USER}"
+      RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD}"
+      QUARKUS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4317   # Non piu' localhost:4317
+      # In properties le origini ammesse sono http://localhost:4200, cioe' il
+      # dev server di Angular. Qui l'applicazione arriva da nginx sulla 8080, e
+      # il browser manda "Origin: http://localhost:8080" anche sulle chiamate
+      # alla stessa origine (lo fa su tutto quello che non e' una GET). Senza
+      # questa riga il login risponde 403 e non si entra.
+      # Da cambiare insieme alla porta pubblicata da `frontend` qui sotto.
+      QUARKUS_HTTP_CORS_ORIGINS: http://localhost:8080
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+    volumes:
+      # Le chiavi con cui si firmano i token di sessione. Non sono nell'immagine
+      # di proposito (vedi be/Dockerfile): una chiave privata dentro un layer
+      # viaggia con l'immagine ovunque la si copi.
+      - ./be/src/main/resources/privateKey.pem:/keys/privateKey.pem:ro
+      - ./be/src/main/resources/publicKey.pem:/keys/publicKey.pem:ro
+      - backend-uploads:/deployments/uploads # I file degli import, altrimenti spariscono col container
+    # Nessuna porta pubblicata: dall'esterno ci si arriva passando da nginx, e
+    # Prometheus lo raggiunge da dentro la rete di Docker. Cosi' non litiga con
+    # il quarkus:dev sull'host, che usa le stesse porte.
+
+  frontend:                                  # nginx con i file statici gia' compilati (fe/Dockerfile)
+    profiles: ["app"]
+    build:
+      context: ./fe
+    container_name: gestionale-frontend
+    depends_on:
+      - backend                              # Solo ordine di avvio: nginx parte anche se il backend tace
+    environment:
+      API_UPSTREAM: http://backend:8080      # Dove nginx inoltra le chiamate /api/
+    ports:
+      - "8080:80"                            # L'applicazione: http://localhost:8080
+
 volumes:                                     # Dichiarazione dei volumi nominati usati sopra
   sqlserver-data:                            # Docker lo crea e gestisce automaticamente
   rabbitmq-data:
   prometheus-data:
   grafana-data:
+  backend-uploads:                           # I file caricati negli import del backend

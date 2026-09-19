@@ -1,0 +1,12 @@
+# Quello che non deve finire nel contesto di build: il contesto viene spedito
+# tutto al demone Docker prima ancora che parta il primo RUN, e node_modules da
+# solo pesa piu' di tutto il resto messo insieme. Le dipendenze le reinstalla
+# `npm ci` dentro l'immagine, quelle di qui sono compilate per un altro sistema.
+node_modules
+dist
+.angular
+
+# Roba di sviluppo che nell'immagine non serve.
+.vscode
+.idea
+*.log

@@ -1,5 +1,30 @@
+# Il contesto parte da zero e si riammette solo quello che serve a compilare.
+# I Dockerfile dello scaffold Quarkus (src/main/docker/) copiano da target/,
+# quindi target resta ammesso per loro; il Dockerfile alla radice compila
+# dentro l'immagine e usa pom.xml e src.
 *
+
+!pom.xml
+!.mvn
+!mvnw
+!src
+
 !target/*-runner
 !target/*-runner.jar
 !target/lib/*
 !target/quarkus-app/*
+
+# ---------------------------------------------------------------------------
+# Riesclusioni, dopo le riammissioni: queste devono restare fuori anche se
+# stanno dentro src/. Non sono configurazione, sono segreti, e un file copiato
+# in un layer ci rimane anche se un layer successivo lo cancella.
+#
+# Sono anche gli unici file che su questa macchina esistono e in un clone
+# pulito no (git non li traccia): lasciarli entrare vorrebbe dire un'immagine
+# che funziona qui e non altrove, senza che il build dica niente.
+# A runtime si montano, vedi il Dockerfile.
+# ---------------------------------------------------------------------------
+src/main/resources/*.p12
+src/main/resources/*.pem
+.env
+uploads
