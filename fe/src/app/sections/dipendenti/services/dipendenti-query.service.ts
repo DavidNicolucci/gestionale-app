@@ -421,7 +421,6 @@ export class DipendentiQueryService {
     }
 
     switch (errore.status) {
-      case 401:
       case 403:
         return MESSAGGI_ELIMINAZIONE.NON_AUTORIZZATO;
       case 404:
@@ -437,7 +436,6 @@ export class DipendentiQueryService {
     }
 
     switch (errore.status) {
-      case 401:
       case 403:
         return MESSAGGI_RIPRISTINO.NON_AUTORIZZATO;
       case 404:
@@ -460,7 +458,6 @@ export class DipendentiQueryService {
       case 400:
         // Validazione del body: l'unico vincolo è che la data non sia passata.
         return MESSAGGI_RINNOVO.DATA_NON_VALIDA;
-      case 401:
       case 403:
         return MESSAGGI_RINNOVO.NON_AUTORIZZATO;
       case 404:

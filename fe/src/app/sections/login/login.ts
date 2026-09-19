@@ -1,7 +1,7 @@
 import {ChangeDetectionStrategy, Component, inject, signal} from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../services/auth/service/auth.service';
 import { LoginFormInterface } from './interfaces/login-form.interface';
 import { AppRoute } from '../../shared/enums/app-route.enum';
@@ -35,6 +35,7 @@ export class Login {
   protected readonly hidePassword = signal(true);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
 
   async onSubmit(): Promise<void> {
@@ -47,12 +48,31 @@ export class Login {
 
     try {
       await this.auth.login(this.form.getRawValue());
-      await this.router.navigate(['/', AppRoute.HOME]);
+      await this.router.navigateByUrl(this.destinazione());
     } catch (errore) {
       this.errorMessage.set(this.messaggioErrore(errore));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /**
+   * Dove andare dopo il login. `sessioneScadutaInterceptor` mette in coda la
+   * pagina da cui l'utente è stato buttato fuori, così dopo aver rifatto
+   * l'accesso ci torna invece di ripartire dalla home.
+   *
+   * Il valore arriva dalla barra degli indirizzi, quindi può averlo scritto
+   * chiunque: passa solo se è un path interno. `//` va escluso a parte, è un
+   * indirizzo verso un altro sito che sembra un path.
+   */
+  private destinazione(): string {
+    const richiesta = this.route.snapshot.queryParamMap.get('returnUrl');
+
+    if (richiesta?.startsWith('/') && !richiesta.startsWith('//')) {
+      return richiesta;
+    }
+
+    return `/${AppRoute.HOME}`;
   }
 
   /**

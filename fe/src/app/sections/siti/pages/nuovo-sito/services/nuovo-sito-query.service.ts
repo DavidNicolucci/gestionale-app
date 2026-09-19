@@ -109,7 +109,6 @@ export class NuovoSitoQueryService {
 
   private messaggioPerStato(status: number): string {
     switch (status) {
-      case 401:
       case 403:
         return NuovoSitoQueryService.MESSAGGI.NON_AUTORIZZATO;
       // Il backend risponde 404 quando l'id del cliente non trova niente: non è

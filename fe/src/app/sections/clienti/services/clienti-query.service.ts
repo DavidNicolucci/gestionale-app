@@ -295,7 +295,6 @@ export class ClientiQueryService {
     }
 
     switch (errore.status) {
-      case 401:
       case 403:
         return MESSAGGI_ELIMINAZIONE.NON_AUTORIZZATO;
       case 404:

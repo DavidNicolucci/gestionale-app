@@ -158,7 +158,6 @@ export class ModificaDipendenteQueryService {
     const M = ModificaDipendenteQueryService.MESSAGGI_SALVATAGGIO;
 
     switch (errore.status) {
-      case 401:
       case 403:
         return M.NON_AUTORIZZATO;
       case 404:
@@ -184,7 +183,6 @@ export class ModificaDipendenteQueryService {
     }
 
     switch (errore.status) {
-      case 401:
       case 403:
         return M.NON_AUTORIZZATO;
       case 404:

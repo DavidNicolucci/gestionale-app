@@ -46,7 +46,7 @@ export class AuthService {
     // Il cookie è HttpOnly: solo il backend può cancellarlo. La stessa chiamata
     // cancella anche la conversazione con l'assistente, storico e memoria del modello.
     await firstValueFrom(this.http.post('/api/auth/logout', null));
-    this.pulisciSessione();
+    this.invalidaSessione();
   }
 
   /**
@@ -58,8 +58,19 @@ export class AuthService {
       const response = await firstValueFrom(this.http.get('/api/auth/me'));
       this.applicaSessione(plainToInstance(LoginResponseModel, response));
     } catch {
-      this.pulisciSessione();
+      this.invalidaSessione();
     }
+  }
+
+  /**
+   * Fa cadere la sessione solo da questa parte, senza chiamare il backend.
+   * La usa `sessioneScadutaInterceptor` quando il cookie è scaduto: quel cookie
+   * ormai non vale più niente, resta solo da allineare quello che sappiamo qui.
+   * Per uscire davvero c'è `logout()`.
+   */
+  invalidaSessione(): void {
+    this.currentUser.set(null);
+    this.ruoli.set([]);
   }
 
   private applicaSessione(sessione: LoginResponseModel): void {
@@ -67,10 +78,5 @@ export class AuthService {
     // `?? []` perché la risposta arriva dal backend: se un giorno il campo non
     // ci fosse, meglio nessun ruolo che un errore a ogni lettura.
     this.ruoli.set(sessione.ruoli ?? []);
-  }
-
-  private pulisciSessione(): void {
-    this.currentUser.set(null);
-    this.ruoli.set([]);
   }
 }

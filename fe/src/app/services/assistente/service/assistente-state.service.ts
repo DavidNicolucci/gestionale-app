@@ -121,7 +121,6 @@ export class AssistenteStateService {
     }
 
     switch (errore.status) {
-      case 401:
       case 403:
         return AssistenteStateService.MESSAGGI.NON_AUTORIZZATO;
       case 429:

@@ -76,7 +76,6 @@ export class NuovoClienteQueryService {
 
   private messaggioPerStato(status: number): string {
     switch (status) {
-      case 401:
       case 403:
         return NuovoClienteQueryService.MESSAGGI.NON_AUTORIZZATO;
       case 409:

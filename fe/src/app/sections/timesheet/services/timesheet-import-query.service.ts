@@ -95,7 +95,6 @@ export class TimesheetImportQueryService {
     }
 
     switch (errore.status) {
-      case 401:
       case 403:
         return TimesheetImportQueryService.MESSAGGI.NON_AUTORIZZATO;
       // 413 dal limite di Quarkus: stesso messaggio del controllo fatto qui,

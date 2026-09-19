@@ -80,7 +80,6 @@ export class NuovoDipendenteQueryService {
 
   private messaggioPerStato(status: number): string {
     switch (status) {
-      case 401:
       case 403:
         return NuovoDipendenteQueryService.MESSAGGI.NON_AUTORIZZATO;
       case 409:
