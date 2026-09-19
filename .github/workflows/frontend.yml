@@ -1,0 +1,48 @@
+name: Frontend
+
+# Solo quando cambia qualcosa sotto fe/: il backend ha i suoi tempi e le sue
+# dipendenze, non ha senso ricostruire l'uno quando si tocca l'altro.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'fe/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    paths:
+      - 'fe/**'
+      - '.github/workflows/frontend.yml'
+
+jobs:
+  verifica:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Stessa major che si usa in locale.
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: fe/package-lock.json
+
+      # `npm ci` e non `npm install`: installa esattamente le versioni del
+      # package-lock e fallisce se il lock non e' allineato al package.json,
+      # invece di aggiornarlo di nascosto.
+      - name: Dipendenze
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --watch=false
+
+      # Per ultima perche' e' la piu' lenta, e perche' fa anche da controllo dei
+      # tipi: `strict` sui .ts e `strictTemplates` sugli .html passano di qui.
+      - name: Build
+        run: npm run build -- --configuration production
